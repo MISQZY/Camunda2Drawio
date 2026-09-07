@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 const BpmnModdle = require('bpmn-moddle');
 const { convertBpmnToDrawio, convertDrawioToBpmn } = require('../../src/converter/index');
 
@@ -24,6 +25,34 @@ describe('convertDrawioToBpmn (approval-process fixture)', () => {
   it('produces a minimal valid empty process when the drawio XML has no recognizable cells', async () => {
     const bpmnXml = await convertDrawioToBpmn('<mxfile><diagram><mxGraphModel><root /></mxGraphModel></diagram></mxfile>');
     expect(bpmnXml).toContain('<bpmn:process');
+  });
+
+  it('imports a real (not this plugin\'s own export) draw.io file: compressed diagram + a UserObject-wrapped task', async () => {
+    const graphXml = `<mxGraphModel><root>
+      <mxCell id="0" />
+      <mxCell id="1" parent="0" />
+      <UserObject id="Task_1" label="Ship it" link="https://example.com">
+        <mxCell style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="120" height="60" as="geometry" />
+        </mxCell>
+      </UserObject>
+      <mxCell id="Task_2" value="Follow up" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+        <mxGeometry x="300" y="200" width="120" height="60" as="geometry" />
+      </mxCell>
+      <mxCell id="Flow_1" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" parent="1" source="Task_1" target="Task_2">
+        <mxGeometry relative="1" as="geometry" />
+      </mxCell>
+    </root></mxGraphModel>`;
+    const compressed = zlib.deflateRawSync(Buffer.from(encodeURIComponent(graphXml), 'utf8')).toString('base64');
+    const realDrawioFile = `<mxfile host="app.diagrams.net"><diagram id="abc" name="Page-1">${compressed}</diagram></mxfile>`;
+
+    const bpmnXml = await convertDrawioToBpmn(realDrawioFile);
+    const { rootElement: definitions } = await new BpmnModdle().fromXML(bpmnXml);
+    const process = findRootElement(definitions, 'bpmn:Process');
+
+    const task1 = collectFlowElements(process).find((el) => el.id === 'Task_1');
+    expect(task1.name).toBe('Ship it');
+    expect(collectFlowElements(process).map((el) => el.id)).toEqual(expect.arrayContaining(['Task_1', 'Task_2', 'Flow_1']));
   });
 
   it('rebuilds the collaboration with both lanes and every flow node', async () => {

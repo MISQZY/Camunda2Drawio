@@ -92,6 +92,31 @@ function resolveBoundaryEventHost(node, nodes) {
   return best ? best.id : undefined;
 }
 
+// A hand-drawn edge dragged from one shape to another without dropping it on
+// a specific connection point (the common case - fixed exit/entry points are
+// only baked in when a diagram was exported by this same plugin, see
+// edgeConverter.js) carries no exitX/exitY/entryX/entryY at all. draw.io
+// itself then renders it as a straight "floating" connector between the two
+// shapes' borders: the point where the line between their centers crosses
+// each shape's own bounding box. Without this, such an edge has no waypoint
+// to fall back to except a shape's corner, collapsing every unfixed
+// connection in the diagram onto a single degenerate point.
+function pointOnBoundaryTowards(bounds, otherBounds) {
+  const cx = bounds.x + bounds.width / 2;
+  const cy = bounds.y + bounds.height / 2;
+  const dx = otherBounds.x + otherBounds.width / 2 - cx;
+  const dy = otherBounds.y + otherBounds.height / 2 - cy;
+  if (dx === 0 && dy === 0) {
+    return { x: round(cx), y: round(cy) };
+  }
+  const halfWidth = bounds.width / 2;
+  const halfHeight = bounds.height / 2;
+  const timeToVerticalEdge = dx !== 0 ? halfWidth / Math.abs(dx) : Infinity;
+  const timeToHorizontalEdge = dy !== 0 ? halfHeight / Math.abs(dy) : Infinity;
+  const t = Math.min(timeToVerticalEdge, timeToHorizontalEdge);
+  return { x: round(cx + dx * t), y: round(cy + dy * t) };
+}
+
 // The counterpart to edgeConverter.js's exitPoint/entryPoint fractions
 // (baked into the style as exitX/exitY/entryX/entryY) and its relative
 // interior "points" array: this recomputes the original absolute waypoint
@@ -116,12 +141,18 @@ function resolveWaypoints(edge, absoluteBoundsCache) {
   const firstPoint =
     sourceBounds && exitX !== null
       ? { x: round(sourceBounds.x + exitX * sourceBounds.width), y: round(sourceBounds.y + exitY * sourceBounds.height) }
-      : interior[0] || (targetBounds ? { x: targetBounds.x, y: targetBounds.y } : { x: 0, y: 0 });
+      : interior[0] ||
+        (sourceBounds && targetBounds
+          ? pointOnBoundaryTowards(sourceBounds, targetBounds)
+          : targetBounds
+            ? { x: targetBounds.x, y: targetBounds.y }
+            : { x: 0, y: 0 });
 
   const lastPoint =
     targetBounds && entryX !== null
       ? { x: round(targetBounds.x + entryX * targetBounds.width), y: round(targetBounds.y + entryY * targetBounds.height) }
-      : interior[interior.length - 1] || firstPoint;
+      : interior[interior.length - 1] ||
+        (sourceBounds && targetBounds ? pointOnBoundaryTowards(targetBounds, sourceBounds) : firstPoint);
 
   return [firstPoint, ...interior, lastPoint];
 }

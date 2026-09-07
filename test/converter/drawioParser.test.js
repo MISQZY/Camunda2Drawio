@@ -50,4 +50,36 @@ describe('parseDrawioCells', () => {
       geometry: { points: [{ x: 60, y: 120 }] }
     });
   });
+
+  it('unwraps a UserObject-wrapped cell (draw.io custom data/links), hoisting its id and label', () => {
+    const withUserObject = `<mxGraphModel><root>
+      <mxCell id="0" />
+      <mxCell id="1" parent="0" />
+      <UserObject id="Task_3" label="Ship it" link="https://example.com">
+        <mxCell style="shape=mxgraph.bpmn.task2;" vertex="1" parent="1">
+          <mxGeometry x="0" y="0" width="100" height="80" as="geometry" />
+        </mxCell>
+      </UserObject>
+    </root></mxGraphModel>`;
+
+    const cells = parseDrawioCells(withUserObject);
+    expect(cells).toHaveLength(1);
+    expect(cells[0]).toMatchObject({ id: 'Task_3', value: 'Ship it', vertex: true });
+  });
+
+  it('unwraps the legacy <object> wrapper the same way', () => {
+    const withObject = `<mxGraphModel><root>
+      <mxCell id="0" />
+      <mxCell id="1" parent="0" />
+      <object id="Task_4" label="Legacy">
+        <mxCell style="shape=mxgraph.bpmn.task2;" vertex="1" parent="1">
+          <mxGeometry x="0" y="0" width="100" height="80" as="geometry" />
+        </mxCell>
+      </object>
+    </root></mxGraphModel>`;
+
+    const cells = parseDrawioCells(withObject);
+    expect(cells).toHaveLength(1);
+    expect(cells[0]).toMatchObject({ id: 'Task_4', value: 'Legacy' });
+  });
 });

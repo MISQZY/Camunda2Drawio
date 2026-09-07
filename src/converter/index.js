@@ -10,6 +10,7 @@ const { buildDrawioXml } = require('./xmlBuilder');
 const { buildDrawioModel } = require('./drawioToBpmnModel');
 const { assembleBpmnModel } = require('./bpmnAssembler');
 const { buildBpmnXml } = require('./bpmnXmlBuilder');
+const { resolveDrawioGraphXml } = require('./drawioDocument');
 
 function defaultDiagramName(definitions) {
   const collaboration = (definitions.rootElements || []).find((el) => el.$type === 'bpmn:Collaboration');
@@ -39,7 +40,8 @@ async function convertBpmnToDrawio(bpmnXml, options = {}) {
   return buildDrawioXml(cells, { diagramName });
 }
 
-async function convertDrawioToBpmn(drawioXml) {
+async function convertDrawioToBpmn(drawioFile) {
+  const drawioXml = await resolveDrawioGraphXml(drawioFile);
   const { nodes, edges } = buildDrawioModel(drawioXml);
   const { collaboration, processes } = assembleBpmnModel(nodes, edges);
   const bpmnXml = buildBpmnXml({ collaboration, processes, nodes, edges });

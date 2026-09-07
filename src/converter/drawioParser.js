@@ -61,16 +61,41 @@ function parseGeometry(cellBody) {
   return geometry;
 }
 
+// A cell with custom data (set via draw.io's "Edit Data", or a hyperlink) is
+// wrapped by draw.io as <UserObject id="…" label="…" …><mxCell …>…</mxCell>
+// </UserObject> (or the older <object> tag) - the id/display text move onto
+// the wrapper, leaving the inner mxCell without its own id or value. Hoist
+// them back onto the inner tag before the main cell scan below ever sees it,
+// so wrapped cells aren't silently skipped for lacking an id.
+function unwrapUserObjects(drawioXml) {
+  return drawioXml.replace(
+    /<(?:UserObject|object)\b([^>]*)>\s*<mxCell\b([^>]*?)(\/?)>/g,
+    (full, outerAttrs, cellAttrs, selfClose) => {
+      let injected = '';
+      if (!/\bid="/.test(cellAttrs)) {
+        const idMatch = /\bid="([^"]*)"/.exec(outerAttrs);
+        if (idMatch) injected += ` id="${idMatch[1]}"`;
+      }
+      if (!/\bvalue="/.test(cellAttrs)) {
+        const labelMatch = /\blabel="([^"]*)"/.exec(outerAttrs);
+        if (labelMatch) injected += ` value="${labelMatch[1]}"`;
+      }
+      return `<mxCell${cellAttrs}${injected}${selfClose}>`;
+    }
+  );
+}
+
 // Hand-rolled on purpose, mirroring xmlBuilder.js's own hand-rolled writer:
 // draw.io's mxCell/mxGeometry/mxPoint structure is flat and fully known, so a
 // small regex-based reader avoids pulling in a DOM/XML parser dependency
 // that would otherwise differ between the Jest (Node) and webpack (browser)
 // bundles.
 function parseDrawioCells(drawioXml) {
+  const unwrapped = unwrapUserObjects(drawioXml);
   const cellRegex = /<mxCell\b([^>]*?)(?:\/>|>([\s\S]*?)<\/mxCell>)/g;
   const cells = [];
   let match;
-  while ((match = cellRegex.exec(drawioXml))) {
+  while ((match = cellRegex.exec(unwrapped))) {
     const attrs = parseAttrs(match[1]);
     if (attrs.id === undefined || attrs.id === '0' || attrs.id === '1') {
       continue;
