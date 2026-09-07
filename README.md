@@ -77,8 +77,11 @@ not as `.zip` archives.
    So you end up with e.g.
    `%APPDATA%\camunda-modeler\resources\plugins\camunda-drawio-export\index.js`.
 3. Restart Camunda Modeler. Open a BPMN diagram — a **draw.io** button
-   appears in the toolbar. Clicking it downloads a `<diagram-name>.drawio`
-   file that can be opened directly in draw.io / diagrams.net.
+   appears in the bottom status bar (Camunda Modeler removed the classic
+   toolbar in 5.0; plugin UI now lives in `status-bar__file` /
+   `status-bar__app` / `tab-actions` slots — this plugin uses
+   `status-bar__file`). Clicking it downloads a `<diagram-name>.drawio` file
+   that can be opened directly in draw.io / diagrams.net.
 
 Re-run `npm run package:plugin` and re-copy the folder whenever the plugin
 source changes.

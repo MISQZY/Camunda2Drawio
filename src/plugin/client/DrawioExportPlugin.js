@@ -70,7 +70,7 @@ export default class DrawioExportPlugin extends PureComponent {
   render() {
     return h(
       Fill,
-      { slot: 'toolbar', group: '9_optimize' },
+      { slot: 'status-bar__file', group: '9_drawio' },
       h(
         'button',
         {
