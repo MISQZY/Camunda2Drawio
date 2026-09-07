@@ -16,7 +16,7 @@
   "license": "MIT",
   "type": "commonjs",
   "dependencies": {
-    "bpmn-moddle": "^10.2.0"
+    "bpmn-moddle": "^8.1.0"
   },
   "devDependencies": {
     "jest": "^30.5.1"
