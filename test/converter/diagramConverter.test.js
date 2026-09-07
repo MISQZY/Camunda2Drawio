@@ -297,4 +297,91 @@ describe('buildDescriptors', () => {
 
     expect(nodes[0].isExpanded).toBe(false);
   });
+
+  it('parents a sub-process\'s own flow elements under the sub-process, not the process root', () => {
+    const innerTask = task('Inner_Task', 'Inner');
+    const subProcess = {
+      $type: 'bpmn:SubProcess',
+      id: 'Sub_1',
+      flowElements: [innerTask]
+    };
+    const definitions = {
+      rootElements: [{ $type: 'bpmn:Process', id: 'P', flowElements: [subProcess] }],
+      diagrams: [
+        {
+          plane: {
+            planeElement: [
+              shape(subProcess, { x: 100, y: 100, width: 300, height: 200 }),
+              shape(innerTask, { x: 140, y: 150, width: 100, height: 80 })
+            ]
+          }
+        }
+      ]
+    };
+
+    const { nodes } = buildDescriptors(definitions);
+    const innerNode = nodes.find((node) => node.id === 'Inner_Task');
+
+    expect(innerNode.parent).toBe('Sub_1');
+    expect(innerNode.x).toBe(40);
+    expect(innerNode.y).toBe(50);
+  });
+
+  it('parents a sequence flow nested inside a sub-process under that sub-process', () => {
+    const innerTaskA = task('Inner_A', 'A');
+    const innerTaskB = task('Inner_B', 'B');
+    const innerFlow = { $type: 'bpmn:SequenceFlow', id: 'Inner_Flow', sourceRef: innerTaskA, targetRef: innerTaskB };
+    const subProcess = {
+      $type: 'bpmn:SubProcess',
+      id: 'Sub_1',
+      flowElements: [innerTaskA, innerTaskB, innerFlow]
+    };
+    const definitions = {
+      rootElements: [{ $type: 'bpmn:Process', id: 'P', flowElements: [subProcess] }],
+      diagrams: [
+        {
+          plane: {
+            planeElement: [
+              shape(subProcess, { x: 100, y: 100, width: 400, height: 200 }),
+              shape(innerTaskA, { x: 140, y: 150, width: 100, height: 80 }),
+              shape(innerTaskB, { x: 320, y: 150, width: 100, height: 80 }),
+              edge(innerFlow, [{ x: 240, y: 190 }, { x: 320, y: 190 }])
+            ]
+          }
+        }
+      ]
+    };
+
+    const { flows } = buildDescriptors(definitions);
+
+    expect(flows[0].parent).toBe('Sub_1');
+    expect(flows[0].waypoints).toEqual([{ x: 140, y: 90 }, { x: 220, y: 90 }]);
+  });
+
+  it('parents elements nested two sub-processes deep under their immediate sub-process', () => {
+    const innerTask = task('Inner_Task', 'Inner');
+    const innerSub = { $type: 'bpmn:SubProcess', id: 'Sub_Inner', flowElements: [innerTask] };
+    const outerSub = { $type: 'bpmn:SubProcess', id: 'Sub_Outer', flowElements: [innerSub] };
+    const definitions = {
+      rootElements: [{ $type: 'bpmn:Process', id: 'P', flowElements: [outerSub] }],
+      diagrams: [
+        {
+          plane: {
+            planeElement: [
+              shape(outerSub, { x: 0, y: 0, width: 500, height: 400 }),
+              shape(innerSub, { x: 40, y: 40, width: 400, height: 300 }),
+              shape(innerTask, { x: 80, y: 100, width: 100, height: 80 })
+            ]
+          }
+        }
+      ]
+    };
+
+    const { nodes } = buildDescriptors(definitions);
+    const innerSubNode = nodes.find((node) => node.id === 'Sub_Inner');
+    const innerTaskNode = nodes.find((node) => node.id === 'Inner_Task');
+
+    expect(innerSubNode.parent).toBe('Sub_Outer');
+    expect(innerTaskNode.parent).toBe('Sub_Inner');
+  });
 });

@@ -51,6 +51,29 @@ function buildProcessIdByElementId(processes) {
   return map;
 }
 
+// bpmn-moddle keeps a sub-process's own contents in its own `flowElements`
+// array rather than the top-level process's, so a plain id lookup against
+// the process never finds them; walk each sub-process (and any nested
+// inside it) to map every element it directly contains to its own id.
+function buildSubProcessParentMap(processes) {
+  const map = new Map();
+
+  function walk(elements, containerId) {
+    (elements || []).forEach((element) => {
+      if (containerId) {
+        map.set(element.id, containerId);
+      }
+      if (element.flowElements) {
+        walk(element.flowElements, element.id);
+      }
+    });
+  }
+
+  processes.forEach((process) => walk(process.flowElements, null));
+
+  return map;
+}
+
 function eventDefinitionTypeOf(bpmnElement) {
   const definitions = bpmnElement.eventDefinitions;
   if (!definitions || definitions.length === 0) {
@@ -100,8 +123,12 @@ function buildDescriptors(definitions) {
   const laneProcessIdMap = buildLaneProcessIdMap(processes);
   const participantParentMap = buildParticipantParentMap(collaborations);
   const processIdByElementId = buildProcessIdByElementId(processes);
+  const subProcessParentMap = buildSubProcessParentMap(processes);
 
   function resolveParent(bpmnElement) {
+    if (subProcessParentMap.has(bpmnElement.id)) {
+      return subProcessParentMap.get(bpmnElement.id);
+    }
     if (laneParentMap.has(bpmnElement.id)) {
       return laneParentMap.get(bpmnElement.id);
     }
