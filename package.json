@@ -1,0 +1,24 @@
+{
+  "name": "camunda-drawio-export",
+  "version": "0.1.0",
+  "description": "Camunda Modeler plugin to export BPMN diagrams as draw.io diagrams using BPMN shapes",
+  "main": "src/plugin/index.js",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "keywords": [
+    "camunda-modeler-plugin",
+    "bpmn",
+    "drawio"
+  ],
+  "author": "MISQZY",
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "bpmn-moddle": "^10.2.0"
+  },
+  "devDependencies": {
+    "jest": "^30.5.1"
+  }
+}
