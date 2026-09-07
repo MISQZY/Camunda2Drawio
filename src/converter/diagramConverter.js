@@ -68,6 +68,31 @@ function isDefaultFlow(flowElement) {
   return !!(source && source.default && source.default.id === flowElement.id);
 }
 
+function clamp01(value) {
+  return Math.min(1, Math.max(0, value));
+}
+
+function round(value) {
+  return Math.round(value * 1000) / 1000;
+}
+
+function toRelativePoints(points, originBounds) {
+  if (!originBounds) {
+    return points;
+  }
+  return points.map((point) => ({ x: point.x - originBounds.x, y: point.y - originBounds.y }));
+}
+
+function toBoundaryFraction(point, bounds) {
+  if (!bounds || !bounds.width || !bounds.height) {
+    return null;
+  }
+  return {
+    x: round(clamp01((point.x - bounds.x) / bounds.width)),
+    y: round(clamp01((point.y - bounds.y) / bounds.height))
+  };
+}
+
 function buildDescriptors(definitions) {
   const processes = collectRootElementsByType(definitions, 'bpmn:Process');
   const collaborations = collectRootElementsByType(definitions, 'bpmn:Collaboration');
@@ -93,62 +118,71 @@ function buildDescriptors(definitions) {
     return '1';
   }
 
-  const nodes = [];
-  const flows = [];
-
   const planeElements = (definitions.diagrams || []).flatMap(
     (diagram) => (diagram.plane && diagram.plane.planeElement) || []
   );
 
-  planeElements.forEach((di) => {
-    const bpmnElement = di.bpmnElement;
-    if (!bpmnElement) {
-      return;
-    }
+  const shapeElements = planeElements.filter((di) => di.$type === 'bpmndi:BPMNShape' && di.bpmnElement && di.bounds);
+  const edgeElements = planeElements.filter((di) => di.$type === 'bpmndi:BPMNEdge' && di.bpmnElement);
 
-    if (di.$type === 'bpmndi:BPMNShape' && di.bounds) {
-      nodes.push({
-        id: bpmnElement.id,
-        type: bpmnElement.$type,
-        name: bpmnElement.name,
-        x: di.bounds.x,
-        y: di.bounds.y,
-        width: di.bounds.width,
-        height: di.bounds.height,
-        parent: resolveParent(bpmnElement),
-        eventDefinitionType: eventDefinitionTypeOf(bpmnElement),
-        isInterrupting: bpmnElement.cancelActivity,
-        isExpanded: di.isExpanded
-      });
-    } else if (di.$type === 'bpmndi:BPMNEdge') {
-      flows.push({
-        id: bpmnElement.id,
-        type: bpmnElement.$type,
-        name: bpmnElement.name,
-        sourceId: bpmnElement.sourceRef && bpmnElement.sourceRef.id,
-        targetId: bpmnElement.targetRef && bpmnElement.targetRef.id,
-        waypoints: (di.waypoint || []).map((point) => ({ x: point.x, y: point.y })),
-        parent: resolveParent(bpmnElement),
-        hasCondition: !!bpmnElement.conditionExpression,
-        isDefault: isDefaultFlow(bpmnElement),
-        associationDirection: bpmnElement.associationDirection
-      });
-    }
+  const nodes = shapeElements.map((di) => {
+    const bpmnElement = di.bpmnElement;
+    return {
+      id: bpmnElement.id,
+      type: bpmnElement.$type,
+      name: bpmnElement.name,
+      x: di.bounds.x,
+      y: di.bounds.y,
+      width: di.bounds.width,
+      height: di.bounds.height,
+      parent: resolveParent(bpmnElement),
+      eventDefinitionType: eventDefinitionTypeOf(bpmnElement),
+      isInterrupting: bpmnElement.cancelActivity,
+      isExpanded: di.isExpanded
+    };
   });
 
-  normalizeToParentRelativeCoordinates(nodes);
+  // absolute bounds captured before nodes are mutated to parent-relative
+  // coordinates below; flows need these same absolute bounds to convert
+  // their own waypoints and to compute exit/entry boundary fractions
+  const absoluteBoundsById = new Map(nodes.map((node) => [node.id, { x: node.x, y: node.y, width: node.width, height: node.height }]));
+
+  const flows = edgeElements.map((di) => {
+    const bpmnElement = di.bpmnElement;
+    const parent = resolveParent(bpmnElement);
+    const absoluteWaypoints = (di.waypoint || []).map((point) => ({ x: point.x, y: point.y }));
+    const sourceId = bpmnElement.sourceRef && bpmnElement.sourceRef.id;
+    const targetId = bpmnElement.targetRef && bpmnElement.targetRef.id;
+    const firstPoint = absoluteWaypoints[0];
+    const lastPoint = absoluteWaypoints[absoluteWaypoints.length - 1];
+
+    return {
+      id: bpmnElement.id,
+      type: bpmnElement.$type,
+      name: bpmnElement.name,
+      sourceId,
+      targetId,
+      waypoints: toRelativePoints(absoluteWaypoints, absoluteBoundsById.get(parent)),
+      exitPoint: firstPoint ? toBoundaryFraction(firstPoint, absoluteBoundsById.get(sourceId)) : null,
+      entryPoint: lastPoint ? toBoundaryFraction(lastPoint, absoluteBoundsById.get(targetId)) : null,
+      parent,
+      hasCondition: !!bpmnElement.conditionExpression,
+      isDefault: isDefaultFlow(bpmnElement),
+      associationDirection: bpmnElement.associationDirection
+    };
+  });
+
+  normalizeToParentRelativeCoordinates(nodes, absoluteBoundsById);
 
   return { nodes, flows };
 }
 
-function normalizeToParentRelativeCoordinates(nodes) {
-  const absoluteById = new Map(nodes.map((node) => [node.id, { x: node.x, y: node.y }]));
-
+function normalizeToParentRelativeCoordinates(nodes, absoluteBoundsById) {
   nodes.forEach((node) => {
     if (node.parent === '1') {
       return;
     }
-    const parentAbsolute = absoluteById.get(node.parent);
+    const parentAbsolute = absoluteBoundsById.get(node.parent);
     if (!parentAbsolute) {
       return;
     }

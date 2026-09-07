@@ -99,6 +99,34 @@ describe('convertFlow', () => {
     expect(cells[0].style).toContain('startArrow=none;');
   });
 
+  it('fixes the edge endpoints to the given exit and entry boundary fractions', () => {
+    const cells = convertFlow({
+      id: 'Flow_1',
+      type: 'bpmn:SequenceFlow',
+      sourceId: 'A',
+      targetId: 'B',
+      waypoints: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+      exitPoint: { x: 1, y: 0.5 },
+      entryPoint: { x: 0, y: 0.5 }
+    });
+
+    expect(cells[0].style).toContain('exitX=1;exitY=0.5;exitDx=0;exitDy=0;');
+    expect(cells[0].style).toContain('entryX=0;entryY=0.5;entryDx=0;entryDy=0;');
+  });
+
+  it('leaves the endpoints floating when no exit or entry point is given', () => {
+    const cells = convertFlow({
+      id: 'Flow_1',
+      type: 'bpmn:SequenceFlow',
+      sourceId: 'A',
+      targetId: 'B',
+      waypoints: [{ x: 0, y: 0 }, { x: 10, y: 0 }]
+    });
+
+    expect(cells[0].style).not.toContain('exitX');
+    expect(cells[0].style).not.toContain('entryX');
+  });
+
   it('uses a custom parent id when provided', () => {
     const cells = convertFlow({
       id: 'Flow_1',

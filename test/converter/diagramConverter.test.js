@@ -71,6 +71,8 @@ describe('buildDescriptors', () => {
       sourceId: 'Task_A',
       targetId: 'Task_B',
       waypoints: [{ x: 100, y: 40 }, { x: 200, y: 40 }],
+      exitPoint: { x: 1, y: 0.5 },
+      entryPoint: { x: 0, y: 0.5 },
       parent: '1'
     });
   });
@@ -184,6 +186,42 @@ describe('buildDescriptors', () => {
 
     expect(taskNode.x).toBe(40);
     expect(taskNode.y).toBe(60);
+  });
+
+  it('makes flow waypoints relative to the flow\'s parent container instead of the absolute page position', () => {
+    const taskA = task('Task_A', 'A');
+    const taskB = task('Task_B', 'B');
+    const flow = { $type: 'bpmn:SequenceFlow', id: 'Flow_1', sourceRef: taskA, targetRef: taskB };
+    const lane = { $type: 'bpmn:Lane', id: 'Lane_1', flowNodeRef: [taskA, taskB] };
+    const process = {
+      $type: 'bpmn:Process',
+      id: 'P',
+      flowElements: [taskA, taskB, flow],
+      laneSets: [{ lanes: [lane] }]
+    };
+    const participant = { $type: 'bpmn:Participant', id: 'Participant_1', processRef: process };
+    const collaboration = { $type: 'bpmn:Collaboration', id: 'Collab_1', participants: [participant] };
+    const definitions = {
+      rootElements: [collaboration, process],
+      diagrams: [
+        {
+          plane: {
+            planeElement: [
+              shape(participant, { x: 40, y: 70, width: 600, height: 300 }),
+              shape(lane, { x: 60, y: 100, width: 400, height: 200 }),
+              shape(taskA, { x: 100, y: 160, width: 100, height: 80 }),
+              shape(taskB, { x: 260, y: 160, width: 100, height: 80 }),
+              edge(flow, [{ x: 200, y: 200 }, { x: 260, y: 200 }])
+            ]
+          }
+        }
+      ]
+    };
+
+    const { flows } = buildDescriptors(definitions);
+
+    expect(flows[0].parent).toBe('Participant_1');
+    expect(flows[0].waypoints).toEqual([{ x: 160, y: 130 }, { x: 220, y: 130 }]);
   });
 
   it('parents a lane under its participant pool', () => {
