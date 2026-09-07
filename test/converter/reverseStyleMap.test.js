@@ -94,12 +94,28 @@ describe('classifyVertexStyle round-tripping styleMap.js output', () => {
     expect(classifyVertexStyle(tokensFor({ type: 'bpmn:DataStoreReference' }))).toEqual({ type: 'bpmn:DataStoreReference' });
   });
 
-  it('recovers a participant pool', () => {
-    expect(classifyVertexStyle(tokensFor({ type: 'bpmn:Participant' }))).toEqual({ type: 'bpmn:Participant' });
+  it('recovers a participant pool (swimlane not nested inside another swimlane)', () => {
+    expect(classifyVertexStyle(tokensFor({ type: 'bpmn:Participant' }), { isNestedSwimlane: false })).toEqual({
+      type: 'bpmn:Participant'
+    });
   });
 
-  it('recovers a lane', () => {
-    expect(classifyVertexStyle(tokensFor({ type: 'bpmn:Lane' }))).toEqual({ type: 'bpmn:Lane' });
+  it('recovers a lane (swimlane nested inside another swimlane)', () => {
+    expect(classifyVertexStyle(tokensFor({ type: 'bpmn:Lane' }), { isNestedSwimlane: true })).toEqual({ type: 'bpmn:Lane' });
+  });
+
+  it('ignores this plugin\'s own startSize=30/20 convention and classifies purely by containment', () => {
+    // A hand-drawn draw.io pool/lane can use any startSize - only nesting tells them apart.
+    expect(classifyVertexStyle(tokensFor({ type: 'bpmn:Participant' }), { isNestedSwimlane: true })).toEqual({
+      type: 'bpmn:Lane'
+    });
+    expect(classifyVertexStyle(tokensFor({ type: 'bpmn:Lane' }), { isNestedSwimlane: false })).toEqual({
+      type: 'bpmn:Participant'
+    });
+  });
+
+  it('flags a plain draw.io group (Ctrl+G) as a transparent, non-BPMN container', () => {
+    expect(classifyVertexStyle(parseStyleTokens('group'))).toEqual({ type: '__drawio:Group' });
   });
 
   it('recovers a text annotation', () => {

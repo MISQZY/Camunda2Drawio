@@ -117,6 +117,39 @@ function pointOnBoundaryTowards(bounds, otherBounds) {
   return { x: round(cx + dx * t), y: round(cy + dy * t) };
 }
 
+// A plain draw.io "group" cell (reverseStyleMap.js's '__drawio:Group') is a
+// transparent grouping box, not a BPMN element - it never becomes a shape in
+// the output. Its children are re-parented to whatever real container the
+// group itself sat in (so a lane's flowNodeRefs, sub-process nesting etc.
+// still resolve correctly), and the group nodes are then discarded. Nested
+// groups are collapsed all the way to the first non-group ancestor.
+function flattenPlainGroups(nodes, edges) {
+  const groupIds = new Set([...nodes.values()].filter((node) => node.type === '__drawio:Group').map((node) => node.id));
+  if (groupIds.size === 0) {
+    return;
+  }
+
+  function resolveThroughGroups(containerId) {
+    let current = containerId;
+    while (current && groupIds.has(current)) {
+      current = nodes.get(current).containerId;
+    }
+    return current;
+  }
+
+  nodes.forEach((node) => {
+    if (!groupIds.has(node.id) && groupIds.has(node.containerId)) {
+      node.containerId = resolveThroughGroups(node.containerId);
+    }
+  });
+  edges.forEach((edge) => {
+    if (groupIds.has(edge.containerId)) {
+      edge.containerId = resolveThroughGroups(edge.containerId);
+    }
+  });
+  groupIds.forEach((id) => nodes.delete(id));
+}
+
 // The counterpart to edgeConverter.js's exitPoint/entryPoint fractions
 // (baked into the style as exitX/exitY/entryX/entryY) and its relative
 // interior "points" array: this recomputes the original absolute waypoint
@@ -159,11 +192,22 @@ function resolveWaypoints(edge, absoluteBoundsCache) {
 
 function buildDrawioModel(drawioXml) {
   const rawCells = parseDrawioCells(drawioXml);
+  const edgeIds = new Set(rawCells.filter((cell) => cell.edge).map((cell) => cell.id));
+  const swimlaneIds = new Set(
+    rawCells.filter((cell) => cell.vertex && parseStyleTokens(cell.style).swimlane === true).map((cell) => cell.id)
+  );
 
   const nodes = new Map();
   const edges = [];
 
   rawCells.forEach((cell) => {
+    // A vertex whose parent is an edge, not a shape, is draw.io's own label
+    // or icon riding along that connector (its "Edit Label"/message-icon
+    // decoration) - never an independent BPMN flow node.
+    if (cell.vertex && edgeIds.has(cell.parent)) {
+      return;
+    }
+
     const tokens = parseStyleTokens(cell.style);
 
     if (cell.edge) {
@@ -189,7 +233,7 @@ function buildDrawioModel(drawioXml) {
       return;
     }
 
-    const info = classifyVertexStyle(tokens);
+    const info = classifyVertexStyle(tokens, { isNestedSwimlane: swimlaneIds.has(cell.parent) });
     const geometry = cell.geometry || {};
     nodes.set(cell.id, {
       kind: 'node',
@@ -208,6 +252,7 @@ function buildDrawioModel(drawioXml) {
   });
 
   const absoluteBoundsCache = computeAbsoluteBounds(nodes);
+  flattenPlainGroups(nodes, edges);
 
   nodes.forEach((node) => {
     if (node.type === 'bpmn:BoundaryEvent') {

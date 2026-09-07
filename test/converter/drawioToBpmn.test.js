@@ -55,6 +55,54 @@ describe('convertDrawioToBpmn (approval-process fixture)', () => {
     expect(collectFlowElements(process).map((el) => el.id)).toEqual(expect.arrayContaining(['Task_1', 'Task_2', 'Flow_1']));
   });
 
+  it('imports a hand-drawn pool with lanes at the real draw.io startSize (20) and a Ctrl+G-grouped task', async () => {
+    // Mirrors the shape of a genuine draw.io BPMN example diagram: a pool
+    // and its lane share the same startSize (this plugin's own export is
+    // the only thing that ever writes startSize=30 for a pool), and one
+    // task sits inside a plain selection group together with its boundary
+    // events, the way Ctrl+G leaves them.
+    const graphXml = `<mxGraphModel><root>
+      <mxCell id="0" />
+      <mxCell id="1" parent="0" />
+      <mxCell id="Pool" value="Items'R'us" style="swimlane;horizontal=0;startSize=20;" vertex="1" parent="1">
+        <mxGeometry x="0" y="0" width="600" height="200" as="geometry" />
+      </mxCell>
+      <mxCell id="Lane" value="Purchasing" style="swimlane;horizontal=0;startSize=20;" vertex="1" parent="Pool">
+        <mxGeometry x="20" y="0" width="580" height="200" as="geometry" />
+      </mxCell>
+      <UserObject label="" id="Grp">
+        <mxCell style="group" vertex="1" connectable="0" parent="Lane">
+          <mxGeometry x="100" y="40" width="140" height="100" as="geometry" />
+        </mxCell>
+      </UserObject>
+      <mxCell id="Procure" value="Procure items" style="shape=mxgraph.bpmn.task2;taskMarker=abstract;" vertex="1" parent="Grp">
+        <mxGeometry x="0" y="0" width="130" height="90" as="geometry" />
+      </mxCell>
+      <mxCell id="ErrorEvent" style="shape=mxgraph.bpmn.event;outline=boundInt;symbol=error;" vertex="1" parent="Grp">
+        <mxGeometry x="90" y="70" width="30" height="30" as="geometry" />
+      </mxCell>
+    </root></mxGraphModel>`;
+
+    const bpmnXml = await convertDrawioToBpmn(`<mxfile><diagram id="d1">${graphXml}</diagram></mxfile>`);
+    const { rootElement: definitions } = await new BpmnModdle().fromXML(bpmnXml);
+
+    const collaboration = findRootElement(definitions, 'bpmn:Collaboration');
+    expect(collaboration.participants).toHaveLength(1);
+    expect(collaboration.participants[0].name).toBe("Items'R'us");
+
+    const process = findRootElement(definitions, 'bpmn:Process');
+    expect(process.laneSets[0].lanes.map((lane) => lane.name)).toEqual(['Purchasing']);
+    expect(process.laneSets[0].lanes[0].flowNodeRef.map((ref) => ref.id)).toEqual(
+      expect.arrayContaining(['Procure', 'ErrorEvent'])
+    );
+
+    const task = collectFlowElements(process).find((el) => el.id === 'Procure');
+    expect(task.$type).toBe('bpmn:Task');
+    const boundaryEvent = collectFlowElements(process).find((el) => el.id === 'ErrorEvent');
+    expect(boundaryEvent.attachedToRef.id).toBe('Procure');
+    expect(collectFlowElements(process).some((el) => el.id === 'Grp')).toBe(false);
+  });
+
   it('rebuilds the collaboration with both lanes and every flow node', async () => {
     const { definitions } = await roundTrip('approval-process.bpmn');
 

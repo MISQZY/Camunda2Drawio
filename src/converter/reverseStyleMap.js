@@ -52,7 +52,15 @@ const EVENT_DEFINITION_BY_SYMBOL = {
   terminate: 'terminate'
 };
 
-function classifyVertexStyle(tokens) {
+function classifyVertexStyle(tokens, context = {}) {
+  // A plain draw.io "group" cell (created by selecting shapes and pressing
+  // Ctrl+G) has no BPMN meaning of its own - it's an invisible organizational
+  // container, unlike a swimlane or the dashed bpmn:Group artifact. Flagged
+  // here so drawioToBpmnModel.js can flatten it away entirely.
+  if (tokens.group === true) {
+    return { type: '__drawio:Group' };
+  }
+
   if (tokens.shape === 'mxgraph.bpmn.task2') {
     if (tokens.bpmnShapeType === 'call') {
       return { type: 'bpmn:CallActivity' };
@@ -95,8 +103,17 @@ function classifyVertexStyle(tokens) {
     return { type: 'bpmn:TextAnnotation' };
   }
 
+  // A pool and a lane use the identical "swimlane" shape in draw.io - this
+  // plugin's own export tells them apart with a startSize=30-vs-20
+  // convention (see styleMap.js), but a hand-drawn diagram's pools and lanes
+  // can use any startSize the user dragged to, so that number means nothing
+  // there. What's always true, by construction, is containment: a lane is a
+  // swimlane nested inside another swimlane (its pool, or a parent lane);
+  // a pool is a swimlane that isn't. The caller supplies that answer since
+  // it requires looking at the parent cell, which a single style string
+  // can't.
   if (tokens.swimlane === true) {
-    return { type: tokens.startSize === '30' ? 'bpmn:Participant' : 'bpmn:Lane' };
+    return { type: context.isNestedSwimlane ? 'bpmn:Lane' : 'bpmn:Participant' };
   }
 
   if (tokens.dashPattern === '8 3 1 3') {
