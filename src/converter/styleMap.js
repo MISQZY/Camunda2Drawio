@@ -10,10 +10,6 @@ const TASK_TYPES = new Set([
   'bpmn:CallActivity'
 ]);
 
-const START_PALETTE = 'fillColor=#d5e8d4;strokeColor=#82b366;';
-const END_PALETTE = 'fillColor=#f8cecc;strokeColor=#b85450;';
-const INTERMEDIATE_PALETTE = 'fillColor=#ffe6cc;strokeColor=#d79b00;';
-
 const GATEWAY_MARKERS = {
   'bpmn:ExclusiveGateway': 'X',
   'bpmn:ParallelGateway': '+',
@@ -30,19 +26,16 @@ function resolveTaskStyle(descriptor) {
   return `rounded=1;whiteSpace=wrap;html=1;${tag(descriptor.type)}`;
 }
 
-function eventPaletteFor(type) {
-  if (type === 'bpmn:StartEvent') {
-    return { palette: START_PALETTE, strokeWidth: 1 };
-  }
+function strokeWidthFor(type) {
   if (type === 'bpmn:EndEvent') {
-    return { palette: END_PALETTE, strokeWidth: 3 };
+    return 3;
   }
-  return { palette: INTERMEDIATE_PALETTE, strokeWidth: 1 };
+  return 1;
 }
 
 function resolveEventStyle(descriptor) {
-  const { palette, strokeWidth } = eventPaletteFor(descriptor.type);
-  let style = `ellipse;whiteSpace=wrap;html=1;strokeWidth=${strokeWidth};${palette}${tag(descriptor.type)}`;
+  const strokeWidth = strokeWidthFor(descriptor.type);
+  let style = `ellipse;whiteSpace=wrap;html=1;strokeWidth=${strokeWidth};${tag(descriptor.type)}`;
 
   if (descriptor.eventDefinitionType) {
     style += `bpmnEventDefinition=${descriptor.eventDefinitionType};`;

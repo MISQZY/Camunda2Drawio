@@ -28,7 +28,8 @@ describe('resolveStyle', () => {
 
     expect(style).toContain('ellipse;whiteSpace=wrap;html=1;');
     expect(style).toContain('strokeWidth=1;');
-    expect(style).toContain('fillColor=#d5e8d4;strokeColor=#82b366;');
+    expect(style).not.toContain('fillColor');
+    expect(style).not.toContain('strokeColor');
   });
 
   it('renders a none end event as a thick-border ellipse', () => {
@@ -36,15 +37,17 @@ describe('resolveStyle', () => {
 
     expect(style).toContain('ellipse;whiteSpace=wrap;html=1;');
     expect(style).toContain('strokeWidth=3;');
-    expect(style).toContain('fillColor=#f8cecc;strokeColor=#b85450;');
+    expect(style).not.toContain('fillColor');
+    expect(style).not.toContain('strokeColor');
   });
 
-  it('renders an intermediate catch event as a thin ellipse in the intermediate palette', () => {
+  it('renders an intermediate catch event as a thin double-border ellipse', () => {
     const { style } = resolveStyle({ type: 'bpmn:IntermediateCatchEvent' });
 
     expect(style).toContain('ellipse;whiteSpace=wrap;html=1;');
     expect(style).toContain('strokeWidth=1;');
-    expect(style).toContain('fillColor=#ffe6cc;strokeColor=#d79b00;');
+    expect(style).not.toContain('fillColor');
+    expect(style).not.toContain('strokeColor');
   });
 
   it('tags the event definition type on the style so markers can be derived', () => {
