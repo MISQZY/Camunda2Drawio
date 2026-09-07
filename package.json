@@ -5,7 +5,8 @@
   "main": "src/plugin/index.js",
   "scripts": {
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "build:plugin": "webpack --config src/plugin/webpack.config.js"
   },
   "keywords": [
     "camunda-modeler-plugin",
@@ -19,6 +20,9 @@
     "bpmn-moddle": "^8.1.0"
   },
   "devDependencies": {
-    "jest": "^30.5.1"
+    "camunda-modeler-plugin-helpers": "^6.0.0",
+    "jest": "^30.5.1",
+    "webpack": "^5.110.3",
+    "webpack-cli": "^7.2.3"
   }
 }
