@@ -1,5 +1,5 @@
 node_modules/
 coverage/
 *.log
-src/plugin/client/dist/
+src/plugin/client/dist/*.map
 release/
