@@ -40,18 +40,19 @@ describe('convertBpmnToDrawio', () => {
     expect(drawioXml).toContain('parent="Participant_1"');
   });
 
-  it('renders the exclusive gateway as a rhombus with an X marker', async () => {
+  it('renders the exclusive gateway using the preconfigured draw.io BPMN gateway shape', async () => {
     const drawioXml = await convertBpmnToDrawio(bpmnXml);
 
-    expect(drawioXml).toContain('rhombus;whiteSpace=wrap;html=1;');
-    expect(drawioXml).toContain('value="X"');
+    expect(drawioXml).toContain('shape=mxgraph.bpmn.gateway2;');
+    expect(drawioXml).toContain('gwType=exclusive;');
+    expect(drawioXml).not.toContain('fillColor=#fff2cc');
   });
 
   it('marks the conditional flow and the default flow', async () => {
     const drawioXml = await convertBpmnToDrawio(bpmnXml);
 
     expect(drawioXml).toMatch(/id="Flow_3"[^>]*style="[^"]*startArrow=diamondThin/);
-    expect(drawioXml).toMatch(/id="Flow_4"[^>]*style="[^"]*bpmnDefaultFlow=1/);
+    expect(drawioXml).toMatch(/id="Flow_4"[^>]*style="[^"]*startArrow=dash/);
   });
 
   it('uses the participant name as the diagram name when no override is given', async () => {

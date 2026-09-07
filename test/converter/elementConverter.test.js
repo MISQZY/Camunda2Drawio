@@ -20,13 +20,29 @@ describe('convertElement', () => {
       parent: '1',
       geometry: { x: 100, y: 200, width: 120, height: 80 }
     });
-    expect(cells[0].style).toContain('rounded=1;whiteSpace=wrap;html=1;');
+    expect(cells[0].style).toContain('shape=mxgraph.bpmn.task2;');
+    expect(cells[0].style).toContain('taskMarker=user;');
   });
 
   it('defaults value to an empty string when the element has no name', () => {
     const cells = convertElement({ id: 'Task_1', type: 'bpmn:Task', x: 0, y: 0, width: 100, height: 80 });
 
     expect(cells[0].value).toBe('');
+  });
+
+  it('clamps a text annotation to a narrow bracket width instead of the source diagram\'s wide label box', () => {
+    const cells = convertElement({
+      id: 'TextAnnotation_1',
+      type: 'bpmn:TextAnnotation',
+      name: 'Escalate after 2 days',
+      x: 300,
+      y: 10,
+      width: 160,
+      height: 40
+    });
+
+    expect(cells[0].geometry).toEqual({ x: 300, y: 10, width: 20, height: 40 });
+    expect(cells[0].value).toBe('Escalate after 2 days');
   });
 
   it('uses a custom parent id when provided', () => {
@@ -43,32 +59,40 @@ describe('convertElement', () => {
     expect(cells[0].parent).toBe('Lane_1');
   });
 
-  it('converts a start event into a single ellipse cell', () => {
+  it('converts a start event into a single cell using the preconfigured draw.io BPMN event shape', () => {
     const cells = convertElement({ id: 'Start_1', type: 'bpmn:StartEvent', x: 10, y: 10, width: 36, height: 36 });
 
     expect(cells).toHaveLength(1);
-    expect(cells[0].style).toContain('ellipse;whiteSpace=wrap;html=1;');
+    expect(cells[0].style).toContain('shape=mxgraph.bpmn.event;');
+    expect(cells[0].style).toContain('outline=standard;');
   });
 
-  it('adds a centered marker glyph child cell for a gateway', () => {
+  it('converts an intermediate event into a single cell with a double-border outline, no child markers', () => {
+    const cells = convertElement({ id: 'Cat_1', type: 'bpmn:IntermediateCatchEvent', x: 0, y: 0, width: 40, height: 40 });
+
+    expect(cells).toHaveLength(1);
+    expect(cells[0].id).toBe('Cat_1');
+    expect(cells[0].style).toContain('outline=catching;');
+  });
+
+  it('converts an exclusive gateway into a single cell using the preconfigured shape\'s X symbol, no child markers', () => {
     const cells = convertElement({ id: 'Gw_1', type: 'bpmn:ExclusiveGateway', x: 300, y: 100, width: 50, height: 50 });
 
-    expect(cells).toHaveLength(2);
-    const [gateway, marker] = cells;
-    expect(gateway.id).toBe('Gw_1');
-    expect(marker.value).toBe('X');
-    expect(marker.parent).toBe('Gw_1');
-    expect(marker.geometry).toMatchObject({ x: 10, y: 10, width: 30, height: 30 });
+    expect(cells).toHaveLength(1);
+    expect(cells[0].id).toBe('Gw_1');
+    expect(cells[0].style).toContain('shape=mxgraph.bpmn.gateway2;');
+    expect(cells[0].style).toContain('gwType=exclusive;');
   });
 
-  it('does not add a marker child cell for a gateway type without a glyph mapping is not applicable (all gateways have glyphs)', () => {
-    const cells = convertElement({ id: 'Gw_2', type: 'bpmn:ParallelGateway', x: 0, y: 0, width: 40, height: 40 });
+  it('converts an inclusive gateway into a single cell using the preconfigured shape\'s thick circle marker', () => {
+    const cells = convertElement({ id: 'Gw_2', type: 'bpmn:InclusiveGateway', x: 0, y: 0, width: 40, height: 40 });
 
-    expect(cells).toHaveLength(2);
-    expect(cells[1].value).toBe('+');
+    expect(cells).toHaveLength(1);
+    expect(cells[0].style).toContain('outline=end;');
+    expect(cells[0].style).toContain('symbol=general;');
   });
 
-  it('adds a plus marker child cell for a collapsed sub-process', () => {
+  it('renders a collapsed sub-process as a single cell - the "+" marker comes from the shape\'s own isLoopSub key', () => {
     const cells = convertElement({
       id: 'Sub_1',
       type: 'bpmn:SubProcess',
@@ -80,12 +104,12 @@ describe('convertElement', () => {
       isExpanded: false
     });
 
-    expect(cells).toHaveLength(2);
-    expect(cells[1].value).toBe('+');
-    expect(cells[1].parent).toBe('Sub_1');
+    expect(cells).toHaveLength(1);
+    expect(cells[0].style).toContain('shape=mxgraph.bpmn.task2;');
+    expect(cells[0].style).toContain('isLoopSub=1;');
   });
 
-  it('does not add a plus marker for an expanded sub-process', () => {
+  it('renders an expanded sub-process as a single container cell with no "+" marker', () => {
     const cells = convertElement({
       id: 'Sub_1',
       type: 'bpmn:SubProcess',
@@ -97,19 +121,6 @@ describe('convertElement', () => {
     });
 
     expect(cells).toHaveLength(1);
-  });
-
-  it('passes event definition type through to the style', () => {
-    const cells = convertElement({
-      id: 'Start_1',
-      type: 'bpmn:StartEvent',
-      x: 0,
-      y: 0,
-      width: 36,
-      height: 36,
-      eventDefinitionType: 'message'
-    });
-
-    expect(cells[0].style).toContain('bpmnEventDefinition=message;');
+    expect(cells[0].style).not.toContain('isLoopSub=1;');
   });
 });

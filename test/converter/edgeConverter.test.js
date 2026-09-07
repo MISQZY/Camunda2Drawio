@@ -20,7 +20,7 @@ describe('convertFlow', () => {
       source: 'Task_1',
       target: 'Gateway_1'
     });
-    expect(cells[0].style).toContain('endArrow=block;endFill=1;');
+    expect(cells[0].style).toContain('endArrow=blockThin;endFill=1;');
   });
 
   it('defaults value to an empty string when the flow has no name', () => {

@@ -27,6 +27,17 @@ function buildGeometryXml(geometry) {
   if (geometry.relative) attrs.push(attr('relative', '1'));
   attrs.push(attr('as', 'geometry'));
 
+  // A floating line marker (no source/target vertex) needs explicit
+  // sourcePoint/targetPoint child points instead of a points waypoint array.
+  if (geometry.sourcePoint && geometry.targetPoint) {
+    return [
+      `<mxGeometry ${attrs.join(' ')}>`,
+      `        <mxPoint ${attr('x', geometry.sourcePoint.x)} ${attr('y', geometry.sourcePoint.y)} ${attr('as', 'sourcePoint')} />`,
+      `        <mxPoint ${attr('x', geometry.targetPoint.x)} ${attr('y', geometry.targetPoint.y)} ${attr('as', 'targetPoint')} />`,
+      '      </mxGeometry>'
+    ].join('\n');
+  }
+
   if (geometry.points && geometry.points.length > 0) {
     const points = geometry.points
       .map((point) => `          <mxPoint ${attr('x', point.x)} ${attr('y', point.y)} />`)

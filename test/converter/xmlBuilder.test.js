@@ -52,6 +52,28 @@ describe('buildDrawioXml', () => {
     expect(xml).toContain('<mxPoint x="160" y="120" />');
   });
 
+  it('serializes a floating line marker edge using sourcePoint/targetPoint (no source/target vertex)', () => {
+    const xml = buildDrawioXml([
+      {
+        id: 'Gw_1_marker_0',
+        style: 'endArrow=none;startArrow=none;html=1;strokeWidth=2;',
+        edge: true,
+        parent: 'Gw_1',
+        geometry: {
+          relative: true,
+          sourcePoint: { x: 14, y: 14 },
+          targetPoint: { x: 36, y: 36 }
+        }
+      }
+    ]);
+
+    expect(xml).toContain('<mxCell id="Gw_1_marker_0" style="endArrow=none;startArrow=none;html=1;strokeWidth=2;" edge="1" parent="Gw_1">');
+    expect(xml).toContain('<mxPoint x="14" y="14" as="sourcePoint" />');
+    expect(xml).toContain('<mxPoint x="36" y="36" as="targetPoint" />');
+    expect(xml).not.toContain('source=');
+    expect(xml).not.toContain('target=');
+  });
+
   it('escapes special XML characters in values', () => {
     const xml = buildDrawioXml([
       {

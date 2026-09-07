@@ -1,8 +1,6 @@
-const { resolveStyle } = require('./styleMap');
+const { resolveStyle, resolveGeometry } = require('./styleMap');
 
-const MARKER_SIZE = 20;
-
-function markerGeometry(width, height, size) {
+function vertexMarkerGeometry(width, height, size) {
   return {
     x: Math.round((width - size) / 2),
     y: Math.round((height - size) / 2),
@@ -11,9 +9,44 @@ function markerGeometry(width, height, size) {
   };
 }
 
+function fractionalPoint(width, height, [fx, fy]) {
+  return { x: Math.round(width * fx), y: Math.round(height * fy) };
+}
+
+function buildMarkerCell(descriptor, marker, index) {
+  const id = `${descriptor.id}_marker_${index}`;
+  const parent = descriptor.id;
+
+  if (marker.type === 'line') {
+    const [from, to] = marker.points;
+    return {
+      id,
+      style: marker.style,
+      edge: true,
+      parent,
+      geometry: {
+        relative: true,
+        sourcePoint: fractionalPoint(descriptor.width, descriptor.height, from),
+        targetPoint: fractionalPoint(descriptor.width, descriptor.height, to)
+      }
+    };
+  }
+
+  const size = Math.round(Math.min(descriptor.width, descriptor.height) * (marker.sizeRatio || 0.6));
+  return {
+    id,
+    value: marker.value || '',
+    style: marker.style,
+    vertex: true,
+    parent,
+    geometry: vertexMarkerGeometry(descriptor.width, descriptor.height, size)
+  };
+}
+
 function convertElement(descriptor) {
   const parent = descriptor.parent || '1';
-  const { style, markerGlyph } = resolveStyle(descriptor);
+  const { style, markers } = resolveStyle(descriptor);
+  const geometryOverride = resolveGeometry(descriptor) || {};
 
   const mainCell = {
     id: descriptor.id,
@@ -24,40 +57,16 @@ function convertElement(descriptor) {
     geometry: {
       x: descriptor.x,
       y: descriptor.y,
-      width: descriptor.width,
-      height: descriptor.height
+      width: geometryOverride.width || descriptor.width,
+      height: geometryOverride.height || descriptor.height
     }
   };
 
   const cells = [mainCell];
 
-  if (markerGlyph) {
-    const gatewayMarkerSize = Math.round(Math.min(descriptor.width, descriptor.height) * 0.6);
-    cells.push({
-      id: `${descriptor.id}_marker`,
-      value: markerGlyph,
-      style: 'text;html=1;align=center;verticalAlign=middle;fontSize=20;fontStyle=1;',
-      vertex: true,
-      parent: descriptor.id,
-      geometry: markerGeometry(descriptor.width, descriptor.height, gatewayMarkerSize)
-    });
-  }
-
-  if (descriptor.type === 'bpmn:SubProcess' && descriptor.isExpanded === false) {
-    cells.push({
-      id: `${descriptor.id}_marker`,
-      value: '+',
-      style: 'text;html=1;align=center;verticalAlign=middle;fontSize=16;fontStyle=1;',
-      vertex: true,
-      parent: descriptor.id,
-      geometry: {
-        x: Math.round((descriptor.width - MARKER_SIZE) / 2),
-        y: descriptor.height - MARKER_SIZE,
-        width: MARKER_SIZE,
-        height: MARKER_SIZE
-      }
-    });
-  }
+  (markers || []).forEach((marker, index) => {
+    cells.push(buildMarkerCell(descriptor, marker, index));
+  });
 
   return cells;
 }
