@@ -17,11 +17,21 @@ BPMN 2.0 XML --(bpmn-moddle)--> descriptors --(style map)--> drawio mxCell(s) --
 ```
 
 - `src/converter/styleMap.js` maps each BPMN element/flow type to a draw.io
-  style string, using only core draw.io shapes (`ellipse`, `rhombus`,
-  `rounded=1` rectangles, `note`, `cylinder3`, `swimlane`) so the output opens
-  correctly in any draw.io version without depending on undocumented internal
-  stencil names. Gateway markers (`X`, `+`, `O`, `*`, `E`) and collapsed
-  sub-process `+` markers are rendered as small child cells.
+  style string, sourced entirely from draw.io's own "BPMN 2.0" shape library
+  (shape search "bpmn" -> "BPMN 2.0 \ General/Tasks/Events/Gateways"; the
+  same shapes ship in every draw.io build, nothing is a separately-installed
+  library). Tasks and sub-processes use `shape=mxgraph.bpmn.task2`, whose own
+  `taskMarker` key draws the per-type icon (user/service/send/receive/
+  manual/business rule/script) and whose own `isLoopSub` key draws the
+  collapsed "+" marker natively - no hand-drawn child cells. Events use
+  `shape=mxgraph.bpmn.event` and gateways use `shape=mxgraph.bpmn.gateway2`,
+  both driven purely by their own `outline`/`symbol`/`gwType` style keys
+  (event border weight/doubling, gateway X/+/asterisk markers, or a plain
+  outline circle for inclusive/event-based gateways, which draw.io's own
+  library has no dedicated marker for either). Data objects/stores use
+  `mxgraph.bpmn.data2`/`datastore`, pools/lanes use the plain `swimlane`
+  primitive, and sequence/message/association flows use the library's own
+  `elbowEdgeStyle` + `blockThin`/`openThin` arrow styles.
 - `src/converter/diagramConverter.js` parses the BPMN DI (diagram
   interchange) info via [`bpmn-moddle`](https://github.com/bpmn-io/bpmn-moddle),
   resolves each element's container (lane → pool → top level) and converts
@@ -67,8 +77,8 @@ not as `.zip` archives.
 
 1. `npm install && npm run package:plugin`
    This produces a self-contained folder at
-   `release/camunda-drawio-export/` (just `index.js` + the bundled
-   `client.js`, no source/dev files).
+   `release/camunda-drawio-export/` (`index.js`, `menu/menu.js` and the
+   bundled `client.js`, no other source/dev files).
 2. Copy that folder as-is into Camunda Modeler's plugins directory:
    - Windows: `%APPDATA%\camunda-modeler\resources\plugins\`
    - macOS: `~/Library/Application Support/camunda-modeler/resources/plugins/`
@@ -76,12 +86,14 @@ not as `.zip` archives.
 
    So you end up with e.g.
    `%APPDATA%\camunda-modeler\resources\plugins\camunda-drawio-export\index.js`.
-3. Restart Camunda Modeler. Open a BPMN diagram — a **draw.io** button
-   appears in the bottom status bar (Camunda Modeler removed the classic
-   toolbar in 5.0; plugin UI now lives in `status-bar__file` /
-   `status-bar__app` / `tab-actions` slots — this plugin uses
-   `status-bar__file`). Clicking it downloads a `<diagram-name>.drawio` file
-   that can be opened directly in draw.io / diagrams.net.
+3. Restart Camunda Modeler. Open a BPMN diagram and go to
+   **Plugins → Draw.io → Export as Draw.io**. Camunda
+   Modeler's plugin API has no way for a third-party plugin to add an entry
+   to the native **File → Export As** submenu — plugin menu contributions
+   only ever land under the top-level **Plugins** menu — so that's the
+   closest equivalent to a native menu item. Clicking it downloads a
+   `<diagram-name>.drawio` file that can be opened directly in draw.io /
+   diagrams.net.
 
 Re-run `npm run package:plugin` and re-copy the folder whenever the plugin
 source changes.
@@ -93,8 +105,9 @@ source changes.
   dialog: the internal `fileSystem.writeFile` API is not reliably usable from
   a client plugin (confirmed on the Camunda forum), while the download
   approach works consistently across Modeler versions.
-- Event and task sub-type markers (message/timer/error start events,
-  user/service/manual tasks, etc.) are tagged on the style
-  (`bpmnEventDefinition=...;`, `bpmnElement=bpmn:UserTask;`) for traceability
-  but currently share one visual shape per BPMN category (ellipse for events,
-  rounded rectangle for tasks); dedicated per-marker icons are not drawn.
+- The "Export as draw.io diagram" entry lives under the **Plugins** menu
+  (`src/plugin/menu/menu.js`, an app-level menu plugin that emits
+  `electronApp.emit('menu:action', 'exportDrawio')`) rather than a status-bar
+  button. It's wired to a bpmn-js `editorActions` entry registered in
+  `src/plugin/client/DrawioExportEditorAction.js`, since main-process menu
+  code has no direct access to the renderer-side modeler.
