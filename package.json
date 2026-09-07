@@ -6,7 +6,8 @@
   "scripts": {
     "test": "jest",
     "test:watch": "jest --watch",
-    "build:plugin": "webpack --config src/plugin/webpack.config.js"
+    "build:plugin": "webpack --config src/plugin/webpack.config.js",
+    "package:plugin": "npm run build:plugin && node scripts/package-plugin.js"
   },
   "keywords": [
     "camunda-modeler-plugin",

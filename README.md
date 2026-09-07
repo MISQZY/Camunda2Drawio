@@ -50,8 +50,9 @@ test/fixtures/   sample .bpmn files used by the integration tests
 
 ```bash
 npm install
-npm test          # runs the full test suite (jest)
-npm run build:plugin   # bundles src/plugin/client into src/plugin/client/dist/client.js
+npm test              # runs the full test suite (jest)
+npm run build:plugin  # bundles src/plugin/client into src/plugin/client/dist/client.js
+npm run package:plugin # builds, then assembles a ready-to-copy folder in release/camunda-drawio-export
 ```
 
 Tests were written before their implementation for every unit in
@@ -60,15 +61,27 @@ history adds one red→green step.
 
 ## Installing the plugin in Camunda Modeler
 
-1. `npm install && npm run build:plugin`
-2. Copy the whole `src/plugin` folder into Camunda Modeler's plugins
-   directory, under a folder named after the plugin, e.g.:
-   - Windows: `%APPDATA%\camunda-modeler\resources\plugins\camunda-drawio-export`
-   - macOS: `~/Library/Application Support/camunda-modeler/resources/plugins/camunda-drawio-export`
-   - Linux: `~/.config/camunda-modeler/resources/plugins/camunda-drawio-export`
+Camunda Modeler discovers plugins as **plain folders** (one folder per
+plugin, each containing its own `index.js`) under its plugins directory —
+not as `.zip` archives.
+
+1. `npm install && npm run package:plugin`
+   This produces a self-contained folder at
+   `release/camunda-drawio-export/` (just `index.js` + the bundled
+   `client.js`, no source/dev files).
+2. Copy that folder as-is into Camunda Modeler's plugins directory:
+   - Windows: `%APPDATA%\camunda-modeler\resources\plugins\`
+   - macOS: `~/Library/Application Support/camunda-modeler/resources/plugins/`
+   - Linux: `~/.config/camunda-modeler/resources/plugins/`
+
+   So you end up with e.g.
+   `%APPDATA%\camunda-modeler\resources\plugins\camunda-drawio-export\index.js`.
 3. Restart Camunda Modeler. Open a BPMN diagram — a **draw.io** button
    appears in the toolbar. Clicking it downloads a `<diagram-name>.drawio`
    file that can be opened directly in draw.io / diagrams.net.
+
+Re-run `npm run package:plugin` and re-copy the folder whenever the plugin
+source changes.
 
 ## Notes / limitations
 
