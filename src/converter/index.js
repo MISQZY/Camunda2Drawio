@@ -7,6 +7,9 @@ const { buildDescriptors } = require('./diagramConverter');
 const { convertElement } = require('./elementConverter');
 const { convertFlow } = require('./edgeConverter');
 const { buildDrawioXml } = require('./xmlBuilder');
+const { buildDrawioModel } = require('./drawioToBpmnModel');
+const { assembleBpmnModel } = require('./bpmnAssembler');
+const { buildBpmnXml } = require('./bpmnXmlBuilder');
 
 function defaultDiagramName(definitions) {
   const collaboration = (definitions.rootElements || []).find((el) => el.$type === 'bpmn:Collaboration');
@@ -36,4 +39,19 @@ async function convertBpmnToDrawio(bpmnXml, options = {}) {
   return buildDrawioXml(cells, { diagramName });
 }
 
-module.exports = { convertBpmnToDrawio };
+async function convertDrawioToBpmn(drawioXml) {
+  const { nodes, edges } = buildDrawioModel(drawioXml);
+  const { collaboration, processes } = assembleBpmnModel(nodes, edges);
+  const bpmnXml = buildBpmnXml({ collaboration, processes, nodes, edges });
+
+  // Round-trips the freshly built XML through bpmn-moddle so a malformed
+  // drawio file surfaces as a rejected promise here, the same way
+  // convertBpmnToDrawio surfaces an invalid BPMN file, instead of failing
+  // later inside modeler.importXML with no context.
+  const moddle = new BpmnModdle();
+  await moddle.fromXML(bpmnXml);
+
+  return bpmnXml;
+}
+
+module.exports = { convertBpmnToDrawio, convertDrawioToBpmn };

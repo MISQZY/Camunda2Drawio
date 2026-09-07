@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  id="Definitions_2"
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:collaboration id="Collaboration_2">
+    <bpmn:participant id="Participant_A" name="Customer" processRef="Process_A" />
+    <bpmn:participant id="Participant_B" name="Backoffice" processRef="Process_B" />
+    <bpmn:messageFlow id="MessageFlow_1" sourceRef="Task_A1" targetRef="SubProcess_1" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_A" isExecutable="false">
+    <bpmn:startEvent id="StartEvent_A" name="Start">
+      <bpmn:outgoing>Flow_A1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:task id="Task_A1" name="Send request">
+      <bpmn:incoming>Flow_A1</bpmn:incoming>
+      <bpmn:outgoing>Flow_A2</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:callActivity id="CallActivity_A1" name="Delegate">
+      <bpmn:incoming>Flow_A2</bpmn:incoming>
+      <bpmn:outgoing>Flow_A3</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:endEvent id="EndEvent_A" name="Done">
+      <bpmn:incoming>Flow_A3</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_A1" sourceRef="StartEvent_A" targetRef="Task_A1" />
+    <bpmn:sequenceFlow id="Flow_A2" sourceRef="Task_A1" targetRef="CallActivity_A1" />
+    <bpmn:sequenceFlow id="Flow_A3" sourceRef="CallActivity_A1" targetRef="EndEvent_A" />
+  </bpmn:process>
+  <bpmn:process id="Process_B" isExecutable="false">
+    <bpmn:subProcess id="SubProcess_1" name="Handle request">
+      <bpmn:incoming>Flow_B1</bpmn:incoming>
+      <bpmn:outgoing>Flow_B2</bpmn:outgoing>
+      <bpmn:startEvent id="StartEvent_B" name="Sub start">
+        <bpmn:outgoing>Flow_Inner1</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:userTask id="Task_B1" name="Process">
+        <bpmn:incoming>Flow_Inner1</bpmn:incoming>
+        <bpmn:outgoing>Flow_Inner2</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:endEvent id="EndEvent_B" name="Sub end">
+        <bpmn:incoming>Flow_Inner2</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:boundaryEvent id="BoundaryEvent_1" name="Timeout" cancelActivity="false" attachedToRef="Task_B1">
+        <bpmn:timerEventDefinition id="TimerEventDefinition_1" />
+        <bpmn:outgoing>Flow_Inner3</bpmn:outgoing>
+      </bpmn:boundaryEvent>
+      <bpmn:sequenceFlow id="Flow_Inner1" sourceRef="StartEvent_B" targetRef="Task_B1" />
+      <bpmn:sequenceFlow id="Flow_Inner2" sourceRef="Task_B1" targetRef="EndEvent_B" />
+    </bpmn:subProcess>
+    <bpmn:startEvent id="StartEvent_C" name="Trigger">
+      <bpmn:outgoing>Flow_B1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:parallelGateway id="Gateway_P1">
+      <bpmn:incoming>Flow_B2</bpmn:incoming>
+      <bpmn:outgoing>Flow_B3</bpmn:outgoing>
+      <bpmn:outgoing>Flow_B4</bpmn:outgoing>
+    </bpmn:parallelGateway>
+    <bpmn:dataObjectReference id="DataObject_1" name="Request data">
+      <bpmn:outgoing>Flow_B3</bpmn:outgoing>
+    </bpmn:dataObjectReference>
+    <bpmn:dataStoreReference id="DataStore_1" name="Archive" />
+    <bpmn:endEvent id="EndEvent_D" name="Finished">
+      <bpmn:incoming>Flow_B4</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:textAnnotation id="TextAnnotation_2">
+      <bpmn:text>Needs review</bpmn:text>
+    </bpmn:textAnnotation>
+    <bpmn:group id="Group_1" />
+    <bpmn:sequenceFlow id="Flow_B1" sourceRef="StartEvent_C" targetRef="SubProcess_1" />
+    <bpmn:sequenceFlow id="Flow_B2" sourceRef="SubProcess_1" targetRef="Gateway_P1" />
+    <bpmn:sequenceFlow id="Flow_B3" sourceRef="Gateway_P1" targetRef="DataObject_1" />
+    <bpmn:sequenceFlow id="Flow_B4" sourceRef="Gateway_P1" targetRef="EndEvent_D" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_2">
+    <bpmndi:BPMNPlane id="BPMNPlane_2" bpmnElement="Collaboration_2">
+      <bpmndi:BPMNShape id="Participant_A_di" bpmnElement="Participant_A" isHorizontal="true">
+        <dc:Bounds x="40" y="40" width="500" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="StartEvent_A_di" bpmnElement="StartEvent_A">
+        <dc:Bounds x="80" y="100" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_A1_di" bpmnElement="Task_A1">
+        <dc:Bounds x="160" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="CallActivity_A1_di" bpmnElement="CallActivity_A1">
+        <dc:Bounds x="310" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_A_di" bpmnElement="EndEvent_A">
+        <dc:Bounds x="460" y="100" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Participant_B_di" bpmnElement="Participant_B" isHorizontal="true">
+        <dc:Bounds x="40" y="230" width="700" height="300" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="StartEvent_C_di" bpmnElement="StartEvent_C">
+        <dc:Bounds x="80" y="360" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="SubProcess_1_di" bpmnElement="SubProcess_1" isExpanded="true">
+        <dc:Bounds x="160" y="270" width="350" height="200" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="StartEvent_B_di" bpmnElement="StartEvent_B">
+        <dc:Bounds x="190" y="360" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_B1_di" bpmnElement="Task_B1">
+        <dc:Bounds x="270" y="340" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_B_di" bpmnElement="EndEvent_B">
+        <dc:Bounds x="430" y="360" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="BoundaryEvent_1_di" bpmnElement="BoundaryEvent_1">
+        <dc:Bounds x="302" y="402" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_P1_di" bpmnElement="Gateway_P1">
+        <dc:Bounds x="560" y="355" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DataObject_1_di" bpmnElement="DataObject_1">
+        <dc:Bounds x="660" y="270" width="36" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DataStore_1_di" bpmnElement="DataStore_1">
+        <dc:Bounds x="660" y="440" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_D_di" bpmnElement="EndEvent_D">
+        <dc:Bounds x="660" y="362" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="TextAnnotation_2_di" bpmnElement="TextAnnotation_2">
+        <dc:Bounds x="440" y="480" width="160" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Group_1_di" bpmnElement="Group_1">
+        <dc:Bounds x="150" y="460" width="200" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_A1_di" bpmnElement="Flow_A1">
+        <di:waypoint x="116" y="118" />
+        <di:waypoint x="160" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_A2_di" bpmnElement="Flow_A2">
+        <di:waypoint x="260" y="120" />
+        <di:waypoint x="310" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_A3_di" bpmnElement="Flow_A3">
+        <di:waypoint x="410" y="120" />
+        <di:waypoint x="460" y="118" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MessageFlow_1_di" bpmnElement="MessageFlow_1">
+        <di:waypoint x="210" y="160" />
+        <di:waypoint x="210" y="270" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_B1_di" bpmnElement="Flow_B1">
+        <di:waypoint x="116" y="378" />
+        <di:waypoint x="160" y="378" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Inner1_di" bpmnElement="Flow_Inner1">
+        <di:waypoint x="226" y="378" />
+        <di:waypoint x="270" y="380" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Inner2_di" bpmnElement="Flow_Inner2">
+        <di:waypoint x="370" y="380" />
+        <di:waypoint x="430" y="378" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_B2_di" bpmnElement="Flow_B2">
+        <di:waypoint x="510" y="378" />
+        <di:waypoint x="560" y="380" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_B3_di" bpmnElement="Flow_B3">
+        <di:waypoint x="585" y="355" />
+        <di:waypoint x="585" y="295" />
+        <di:waypoint x="660" y="295" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_B4_di" bpmnElement="Flow_B4">
+        <di:waypoint x="610" y="380" />
+        <di:waypoint x="660" y="380" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

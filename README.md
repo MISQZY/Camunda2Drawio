@@ -3,7 +3,8 @@
 A Camunda Modeler plugin that exports the BPMN diagram open in the editor as a
 [draw.io](https://www.drawio.com/) diagram, rendered with BPMN-shaped elements
 (events, tasks, gateways, pools/lanes, data objects, flows) instead of a raw
-BPMN XML dump.
+BPMN XML dump - and imports a `.drawio` diagram back into the editor as a BPMN
+diagram.
 
 Built test-first: the conversion engine (`src/converter`) is a set of small,
 pure functions covered by unit tests, orchestrated by a thin Camunda Modeler
@@ -43,6 +44,43 @@ BPMN 2.0 XML --(bpmn-moddle)--> descriptors --(style map)--> drawio mxCell(s) --
   (`mxfile`/`mxGraphModel`) document.
 - `src/converter/index.js` (`convertBpmnToDrawio`) wires the above into the
   public API used both by the tests and by the plugin.
+
+Import runs the same pipeline in reverse:
+
+```
+.drawio XML --(cell parser)--> mxCell(s) --(reverse style map)--> descriptors --(bpmn assembler)--> BPMN model --(xml builder)--> BPMN 2.0 XML
+```
+
+- `src/converter/drawioParser.js` reads the `mxCell`/`mxGeometry`/`mxPoint`
+  elements out of a `.drawio` file with the same kind of small, hand-rolled
+  parser `xmlBuilder.js` uses to write them - draw.io's own structure is flat
+  and fully known, so no DOM/XML library dependency is needed.
+- `src/converter/reverseStyleMap.js` is the inverse of `styleMap.js`: it
+  reads back the same `taskMarker`/`outline`/`symbol`/`gwType`/`dashPattern`
+  keys to recover the original BPMN element or flow type. Because it only
+  understands the vocabulary `styleMap.js` itself writes (draw.io's own
+  "BPMN 2.0" shape library), a diagram exported by this plugin - or hand-drawn
+  in draw.io using that same shape library - round-trips; an arbitrary
+  hand-drawn diagram using other shapes does not.
+- `src/converter/drawioToBpmnModel.js` turns the flat cell list back into
+  absolute-coordinate node/edge descriptors: it resolves parent-relative
+  geometry back to absolute bounds, recomputes each flow's full waypoint list
+  from its interior `points` plus the `exitX/exitY/entryX/entryY` style keys,
+  and - since a boundary event's host is never recorded in the drawio cell
+  itself - infers it from geometry (the activity whose border the event sits
+  closest to, innermost first on a tie).
+- `src/converter/bpmnAssembler.js` groups those flat descriptors back into
+  BPMN containment: which process a node belongs to, which participant/pool
+  that process sits in, which lane references it, and which sub-process
+  nests it.
+- `src/converter/bpmnXmlBuilder.js` serializes the assembled model into a
+  `bpmn:definitions` document (process/collaboration/lanes/flowElements plus
+  matching DI shapes/edges), the same hand-rolled way `xmlBuilder.js` writes
+  `.drawio` XML.
+- `src/converter/index.js` (`convertDrawioToBpmn`) wires the above together
+  and round-trips its own output through `bpmn-moddle` once, so a malformed
+  drawio file surfaces as a rejected promise here instead of failing later
+  inside `modeler.importXML` with no context.
 
 ## Project layout
 
@@ -105,6 +143,9 @@ not as `.zip` archives.
    closest equivalent to a native menu item. Clicking it downloads a
    `<diagram-name>.drawio` file that can be opened directly in draw.io /
    diagrams.net.
+4. To go the other way, use **Plugins → Draw.io → Import from Draw.io** with
+   a BPMN tab open — it prompts for a `.drawio` file and replaces the open
+   diagram's contents with the imported one.
 
 ### From source (for development)
 
@@ -122,9 +163,30 @@ the folder whenever the plugin source changes.
   dialog: the internal `fileSystem.writeFile` API is not reliably usable from
   a client plugin (confirmed on the Camunda forum), while the download
   approach works consistently across Modeler versions.
-- The "Export as draw.io diagram" entry lives under the **Plugins** menu
-  (`src/plugin/menu/menu.js`, an app-level menu plugin that emits
-  `electronApp.emit('menu:action', 'exportDrawio')`) rather than a status-bar
-  button. It's wired to a bpmn-js `editorActions` entry registered in
-  `src/plugin/client/DrawioExportEditorAction.js`, since main-process menu
-  code has no direct access to the renderer-side modeler.
+- The "Export as draw.io diagram" and "Import from draw.io diagram" entries
+  live under the **Plugins** menu (`src/plugin/menu/menu.js`, an app-level
+  menu plugin that emits `electronApp.emit('menu:action', 'exportDrawio' /
+  'importDrawio')`) rather than a status-bar button. Each is wired to its own
+  bpmn-js `editorActions` entry (`DrawioExportEditorAction.js` /
+  `DrawioImportEditorAction.js`), since main-process menu code has no direct
+  access to the renderer-side modeler. Import reads the chosen file with a
+  hidden `<input type="file">` + `FileReader` for the same reason export
+  downloads via `<a download>` instead of Camunda Modeler's native file APIs.
+- Import only understands the draw.io "BPMN 2.0" shape library styles that
+  `styleMap.js` itself writes (see "How it works" above) — it round-trips a
+  diagram this plugin exported, or one hand-drawn in draw.io using the same
+  shape library, but not an arbitrary hand-drawn diagram using other shapes.
+- A sequence flow's condition-expression *text* isn't recoverable on import:
+  the drawio cell only records *whether* a flow had one (as a diamond arrow
+  marker), so a re-imported conditional flow gets an empty placeholder
+  `conditionExpression` that needs its logic re-entered.
+- A boundary event's host activity isn't recorded in the drawio cell either,
+  so import infers `attachedToRef` from geometry (the activity whose border
+  the event sits closest to). This matches visually-sane diagrams but can be
+  wrong for a boundary event positioned away from any activity.
+- Import does not restore `incoming`/`outgoing` reference lists on flow nodes
+  (bpmn-js derives connections from each flow's own `sourceRef`/`targetRef`
+  at render time, not from those redundant, purely informational lists) or
+  a backing `bpmn:dataObject`/`bpmn:dataStore` element for a data object/store
+  reference — neither affects how the diagram opens or renders in the
+  Modeler.
