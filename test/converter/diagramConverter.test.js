@@ -220,8 +220,8 @@ describe('buildDescriptors', () => {
 
     const { flows } = buildDescriptors(definitions);
 
-    expect(flows[0].parent).toBe('Participant_1');
-    expect(flows[0].waypoints).toEqual([{ x: 160, y: 130 }, { x: 220, y: 130 }]);
+    expect(flows[0].parent).toBe('Lane_1');
+    expect(flows[0].waypoints).toEqual([{ x: 140, y: 100 }, { x: 200, y: 100 }]);
   });
 
   it('parents a lane under its participant pool', () => {
@@ -383,5 +383,42 @@ describe('buildDescriptors', () => {
 
     expect(innerSubNode.parent).toBe('Sub_Outer');
     expect(innerTaskNode.parent).toBe('Sub_Inner');
+  });
+
+  it('reads a text annotation\'s label from its `text` property, since it has no `name` attribute', () => {
+    const annotation = { $type: 'bpmn:TextAnnotation', id: 'TextAnnotation_1', text: 'Escalate after 2 days' };
+    const definitions = {
+      rootElements: [{ $type: 'bpmn:Process', id: 'P', flowElements: [annotation] }],
+      diagrams: [{ plane: { planeElement: [shape(annotation, { x: 0, y: 0, width: 160, height: 40 })] } }]
+    };
+
+    const { nodes } = buildDescriptors(definitions);
+
+    expect(nodes[0].name).toBe('Escalate after 2 days');
+  });
+
+  it('pins an association\'s text-annotation end to the bracket\'s left edge regardless of the routed waypoint', () => {
+    const taskA = task('Task_A', 'A');
+    const annotation = { $type: 'bpmn:TextAnnotation', id: 'TextAnnotation_1', text: 'Note' };
+    const association = { $type: 'bpmn:Association', id: 'Assoc_1', sourceRef: taskA, targetRef: annotation };
+    const definitions = {
+      rootElements: [{ $type: 'bpmn:Process', id: 'P', flowElements: [taskA, annotation, association] }],
+      diagrams: [
+        {
+          plane: {
+            planeElement: [
+              shape(taskA, { x: 0, y: 0, width: 100, height: 80 }),
+              shape(annotation, { x: 200, y: 100, width: 160, height: 40 }),
+              // waypoint lands on the annotation's bottom edge, not its left edge
+              edge(association, [{ x: 50, y: 80 }, { x: 260, y: 100 }])
+            ]
+          }
+        }
+      ]
+    };
+
+    const { flows } = buildDescriptors(definitions);
+
+    expect(flows[0].entryPoint).toEqual({ x: 0, y: 0.5 });
   });
 });

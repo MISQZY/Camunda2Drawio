@@ -116,6 +116,43 @@ function toBoundaryFraction(point, bounds) {
   };
 }
 
+// A flow's own bpmn:sequenceFlow/messageFlow/association element is never
+// itself listed in a lane's flowNodeRef (only flow nodes are), so resolving
+// its parent the same way as a node always bottoms out one level too high -
+// e.g. two tasks in the same lane get connected by a flow parented to their
+// pool instead of their lane. That mismatch is exactly what leaves stray
+// arrows uncollapsed when a lane (or pool) is collapsed in draw.io: an edge
+// only collapses with a container it is actually parented under. Instead,
+// parent a flow at the lowest common ancestor of its source/target nodes'
+// own (already-correct) parents, so it collapses with whichever lane/pool/
+// sub-process actually encloses both ends - and sits at the shared root when
+// the flow crosses a pool boundary, so draw.io can clip it to that pool's
+// edge on collapse rather than dropping it entirely.
+function ancestorChain(id, parentById) {
+  const chain = [];
+  const seen = new Set();
+  let current = parentById.get(id);
+  while (current && current !== '1' && !seen.has(current)) {
+    chain.push(current);
+    seen.add(current);
+    current = parentById.get(current);
+  }
+  chain.push('1');
+  return chain;
+}
+
+function lowestCommonAncestor(aId, bId, parentById) {
+  const bChain = new Set(ancestorChain(bId, parentById));
+  return ancestorChain(aId, parentById).find((id) => bChain.has(id)) || '1';
+}
+
+function resolveFlowParent(sourceId, targetId, parentById) {
+  if (!parentById.has(sourceId) || !parentById.has(targetId)) {
+    return '1';
+  }
+  return lowestCommonAncestor(sourceId, targetId, parentById);
+}
+
 function buildDescriptors(definitions) {
   const processes = collectRootElementsByType(definitions, 'bpmn:Process');
   const collaborations = collectRootElementsByType(definitions, 'bpmn:Collaboration');
@@ -157,7 +194,11 @@ function buildDescriptors(definitions) {
     return {
       id: bpmnElement.id,
       type: bpmnElement.$type,
-      name: bpmnElement.name,
+      // bpmn:TextAnnotation has no `name` attribute - its label is the
+      // plain-string `text` property (bpmn-moddle flattens the child
+      // <bpmn:text> element down to a string), so without this fallback
+      // every exported annotation cell comes out with an empty label.
+      name: bpmnElement.name || bpmnElement.text,
       x: di.bounds.x,
       y: di.bounds.y,
       width: di.bounds.width,
@@ -173,15 +214,23 @@ function buildDescriptors(definitions) {
   // coordinates below; flows need these same absolute bounds to convert
   // their own waypoints and to compute exit/entry boundary fractions
   const absoluteBoundsById = new Map(nodes.map((node) => [node.id, { x: node.x, y: node.y, width: node.width, height: node.height }]));
+  const parentById = new Map(nodes.map((node) => [node.id, node.parent]));
 
   const flows = edgeElements.map((di) => {
     const bpmnElement = di.bpmnElement;
-    const parent = resolveParent(bpmnElement);
     const absoluteWaypoints = (di.waypoint || []).map((point) => ({ x: point.x, y: point.y }));
     const sourceId = bpmnElement.sourceRef && bpmnElement.sourceRef.id;
     const targetId = bpmnElement.targetRef && bpmnElement.targetRef.id;
+    const parent = resolveFlowParent(sourceId, targetId, parentById);
     const firstPoint = absoluteWaypoints[0];
     const lastPoint = absoluteWaypoints[absoluteWaypoints.length - 1];
+    // A text annotation's own drawn glyph is always its left edge (the
+    // vertical spine of the "[" bracket), regardless of where the original
+    // diagram happened to route the association's waypoint into its
+    // bounding box - so pin the annotation end of the connection there
+    // instead of trusting the geometrically-derived fraction.
+    const sourceIsAnnotation = bpmnElement.sourceRef && bpmnElement.sourceRef.$type === 'bpmn:TextAnnotation';
+    const targetIsAnnotation = bpmnElement.targetRef && bpmnElement.targetRef.$type === 'bpmn:TextAnnotation';
 
     return {
       id: bpmnElement.id,
@@ -190,8 +239,12 @@ function buildDescriptors(definitions) {
       sourceId,
       targetId,
       waypoints: toRelativePoints(absoluteWaypoints, absoluteBoundsById.get(parent)),
-      exitPoint: firstPoint ? toBoundaryFraction(firstPoint, absoluteBoundsById.get(sourceId)) : null,
-      entryPoint: lastPoint ? toBoundaryFraction(lastPoint, absoluteBoundsById.get(targetId)) : null,
+      exitPoint: sourceIsAnnotation
+        ? { x: 0, y: 0.5 }
+        : (firstPoint ? toBoundaryFraction(firstPoint, absoluteBoundsById.get(sourceId)) : null),
+      entryPoint: targetIsAnnotation
+        ? { x: 0, y: 0.5 }
+        : (lastPoint ? toBoundaryFraction(lastPoint, absoluteBoundsById.get(targetId)) : null),
       parent,
       hasCondition: !!bpmnElement.conditionExpression,
       isDefault: isDefaultFlow(bpmnElement),
