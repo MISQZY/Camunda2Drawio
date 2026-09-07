@@ -79,6 +79,17 @@ describe('classifyVertexStyle round-tripping styleMap.js output', () => {
     }
   );
 
+  it.each(['multiple', 'parallelMultiple'])(
+    'recovers the %s event definition (draw.io\'s own BPMN event shape supports these symbols too, even though this plugin never writes them)',
+    (symbol) => {
+      const tokens = parseStyleTokens(`shape=mxgraph.bpmn.event;outline=catching;symbol=${symbol};`);
+      expect(classifyVertexStyle(tokens)).toEqual({
+        type: 'bpmn:IntermediateCatchEvent',
+        eventDefinitionType: symbol
+      });
+    }
+  );
+
   it.each(['bpmn:ExclusiveGateway', 'bpmn:ParallelGateway', 'bpmn:ComplexGateway', 'bpmn:InclusiveGateway', 'bpmn:EventBasedGateway'])(
     'recovers %s',
     (type) => {

@@ -1,4 +1,4 @@
-const XML_UNESCAPES = {
+const XML_NAMED_UNESCAPES = {
   '&lt;': '<',
   '&gt;': '>',
   '&quot;': '"',
@@ -6,8 +6,20 @@ const XML_UNESCAPES = {
   '&amp;': '&'
 };
 
+// draw.io writes an embedded line break in a cell's value as the numeric
+// character reference &#10; (a plain multi-line label isn't itself an XML
+// element, so it can't contain a literal newline) - without decoding that
+// here, it survives verbatim as the four-character string "&#10;" in every
+// multi-line task/pool label.
 function unescapeXml(value) {
-  return String(value).replace(/&lt;|&gt;|&quot;|&apos;|&amp;/g, (entity) => XML_UNESCAPES[entity]);
+  return String(value).replace(
+    /&#x([0-9a-fA-F]+);|&#(\d+);|&lt;|&gt;|&quot;|&apos;|&amp;/g,
+    (entity, hex, decimal) => {
+      if (hex !== undefined) return String.fromCodePoint(parseInt(hex, 16));
+      if (decimal !== undefined) return String.fromCodePoint(parseInt(decimal, 10));
+      return XML_NAMED_UNESCAPES[entity];
+    }
+  );
 }
 
 function parseAttrs(source) {

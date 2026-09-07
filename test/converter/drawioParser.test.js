@@ -82,4 +82,17 @@ describe('parseDrawioCells', () => {
     expect(cells).toHaveLength(1);
     expect(cells[0]).toMatchObject({ id: 'Task_4', value: 'Legacy' });
   });
+
+  it('decodes a numeric character reference (draw.io\'s encoding for an embedded line break)', () => {
+    const withLineBreak = `<mxGraphModel><root>
+      <mxCell id="0" />
+      <mxCell id="1" parent="0" />
+      <mxCell id="Task_5" value="Check &#10;availability" style="rounded=0;" vertex="1" parent="1">
+        <mxGeometry x="0" y="0" width="100" height="80" as="geometry" />
+      </mxCell>
+    </root></mxGraphModel>`;
+
+    const [task] = parseDrawioCells(withLineBreak);
+    expect(task.value).toBe('Check \navailability');
+  });
 });

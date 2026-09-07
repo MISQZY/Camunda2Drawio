@@ -40,6 +40,23 @@ describe('buildDrawioModel edge waypoints', () => {
     expect(start).toEqual({ x: 160, y: 70 });
     expect(end).toEqual({ x: 300, y: 230 });
   });
+
+  it('does not collapse both ends onto a single interior bend point (previously produced a zero-length edge)', () => {
+    // A hand-drawn edge with exactly one bend and no fixed exit/entry point:
+    // both ends used to fall back to that same lone interior point, making
+    // the whole edge a single point - which Camunda Modeler then draws as a
+    // stray, disconnected arrowhead rather than a line between the tasks.
+    const xml = twoTasksAndAnEdge(
+      '<mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="220" y="90"/></Array></mxGeometry>'
+    );
+    const { edges } = buildDrawioModel(xml);
+
+    const [start, bend, end] = edges[0].waypoints;
+    expect(bend).toEqual({ x: 220, y: 90 });
+    expect(start).not.toEqual(bend);
+    expect(end).not.toEqual(bend);
+    expect(start).not.toEqual(end);
+  });
 });
 
 describe('buildDrawioModel pools and lanes', () => {

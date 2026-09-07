@@ -97,15 +97,17 @@ function resolveBoundaryEventHost(node, nodes) {
 // only baked in when a diagram was exported by this same plugin, see
 // edgeConverter.js) carries no exitX/exitY/entryX/entryY at all. draw.io
 // itself then renders it as a straight "floating" connector between the two
-// shapes' borders: the point where the line between their centers crosses
-// each shape's own bounding box. Without this, such an edge has no waypoint
-// to fall back to except a shape's corner, collapsing every unfixed
-// connection in the diagram onto a single degenerate point.
-function pointOnBoundaryTowards(bounds, otherBounds) {
+// shapes' borders: the point where the line towards the other end - the
+// other shape's center, or the nearest bend point if the edge has one -
+// crosses this shape's own bounding box. `target` may be either a full
+// {x,y,width,height} rect or a bare {x,y} bend point; a missing width/height
+// is treated as zero, so aiming at a point is just the rect case with a
+// zero-size "other shape".
+function pointOnBoundaryTowards(bounds, target) {
   const cx = bounds.x + bounds.width / 2;
   const cy = bounds.y + bounds.height / 2;
-  const dx = otherBounds.x + otherBounds.width / 2 - cx;
-  const dy = otherBounds.y + otherBounds.height / 2 - cy;
+  const dx = target.x + (target.width || 0) / 2 - cx;
+  const dy = target.y + (target.height || 0) / 2 - cy;
   if (dx === 0 && dy === 0) {
     return { x: round(cx), y: round(cy) };
   }
@@ -171,21 +173,27 @@ function resolveWaypoints(edge, absoluteBoundsCache) {
   const entryX = edge.tokens.entryX !== undefined ? Number(edge.tokens.entryX) : null;
   const entryY = edge.tokens.entryY !== undefined ? Number(edge.tokens.entryY) : null;
 
+  // An unfixed end always lands on its own shape's border, aimed at whatever
+  // it heads towards next - the nearest interior bend if the edge has one,
+  // otherwise the other end's shape directly. Reusing an interior point
+  // itself as the endpoint (as opposed to aiming at it) is wrong even when
+  // there's only one bend: it collapses both ends onto that single point,
+  // producing a zero-length edge that draw.io would never actually draw.
+  const firstAimPoint = interior[0] || targetBounds;
   const firstPoint =
     sourceBounds && exitX !== null
       ? { x: round(sourceBounds.x + exitX * sourceBounds.width), y: round(sourceBounds.y + exitY * sourceBounds.height) }
-      : interior[0] ||
-        (sourceBounds && targetBounds
-          ? pointOnBoundaryTowards(sourceBounds, targetBounds)
-          : targetBounds
-            ? { x: targetBounds.x, y: targetBounds.y }
-            : { x: 0, y: 0 });
+      : sourceBounds && firstAimPoint
+        ? pointOnBoundaryTowards(sourceBounds, firstAimPoint)
+        : interior[0] || (targetBounds ? { x: targetBounds.x, y: targetBounds.y } : { x: 0, y: 0 });
 
+  const lastAimPoint = interior[interior.length - 1] || sourceBounds;
   const lastPoint =
     targetBounds && entryX !== null
       ? { x: round(targetBounds.x + entryX * targetBounds.width), y: round(targetBounds.y + entryY * targetBounds.height) }
-      : interior[interior.length - 1] ||
-        (sourceBounds && targetBounds ? pointOnBoundaryTowards(targetBounds, sourceBounds) : firstPoint);
+      : targetBounds && lastAimPoint
+        ? pointOnBoundaryTowards(targetBounds, lastAimPoint)
+        : interior[interior.length - 1] || firstPoint;
 
   return [firstPoint, ...interior, lastPoint];
 }

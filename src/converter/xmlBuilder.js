@@ -3,11 +3,18 @@ const XML_ESCAPES = {
   '<': '&lt;',
   '>': '&gt;',
   '"': '&quot;',
-  "'": '&apos;'
+  "'": '&apos;',
+  // A literal newline/CR written into an attribute value is not "escaped"
+  // text - the XML spec has any conformant parser normalize it away to a
+  // plain space on the next read. Writing it as a numeric character
+  // reference instead (the same form draw.io itself uses for a multi-line
+  // label, see drawioParser.js's unescapeXml) survives that normalization.
+  '\n': '&#10;',
+  '\r': '&#13;'
 };
 
 function escapeXml(value) {
-  return String(value).replace(/[&<>"']/g, (char) => XML_ESCAPES[char]);
+  return String(value).replace(/[&<>"'\n\r]/g, (char) => XML_ESCAPES[char]);
 }
 
 function attr(name, value) {

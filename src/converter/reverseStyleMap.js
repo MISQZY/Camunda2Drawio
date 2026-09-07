@@ -49,7 +49,9 @@ const EVENT_DEFINITION_BY_SYMBOL = {
   cancel: 'cancel',
   compensation: 'compensate',
   signal: 'signal',
-  terminate: 'terminate'
+  terminate: 'terminate',
+  multiple: 'multiple',
+  parallelMultiple: 'parallelMultiple'
 };
 
 function classifyVertexStyle(tokens, context = {}) {

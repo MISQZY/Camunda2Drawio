@@ -89,6 +89,25 @@ describe('buildDrawioXml', () => {
     expect(xml).toContain('value="A &amp; B &lt;C&gt; &quot;quoted&quot;"');
   });
 
+  it('escapes an embedded newline as a numeric character reference, not a literal line break', () => {
+    // A literal newline inside an XML attribute value gets normalized away to
+    // a plain space by any conformant parser on the next read - encoding it
+    // as &#10; (the same form draw.io itself uses) is what actually survives.
+    const xml = buildDrawioXml([
+      {
+        id: 'Task_1',
+        value: 'Check \navailability',
+        style: 'rounded=1;',
+        vertex: true,
+        parent: '1',
+        geometry: { x: 0, y: 0, width: 10, height: 10 }
+      }
+    ]);
+
+    expect(xml).toContain('value="Check &#10;availability"');
+    expect(xml).not.toContain('Check \navailability"');
+  });
+
   it('omits value attribute when value is empty', () => {
     const xml = buildDrawioXml([
       {
