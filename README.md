@@ -47,13 +47,15 @@ BPMN 2.0 XML --(bpmn-moddle)--> descriptors --(style map)--> drawio mxCell(s) --
 ## Project layout
 
 ```
-src/converter/   conversion engine (unit tested)
-src/plugin/      Camunda Modeler client plugin
-  index.js       plugin manifest (name + script), loaded by Camunda Modeler
-  client/        webpack entry bundled into client/dist/client.js
-test/converter/  unit + integration tests for the conversion engine
-test/plugin/     unit tests for plugin-side pure helpers
-test/fixtures/   sample .bpmn files used by the integration tests
+index.js         root plugin manifest - lets the whole downloaded repo
+                  folder be dropped straight into Camunda's plugins dir
+src/converter/    conversion engine (unit tested)
+src/plugin/       Camunda Modeler client plugin
+  index.js        plugin manifest for the slim release/ build (see below)
+  client/         webpack entry bundled into client/dist/client.js
+test/converter/   unit + integration tests for the conversion engine
+test/plugin/      unit tests for plugin-side pure helpers
+test/fixtures/    sample .bpmn files used by the integration tests
 ```
 
 ## Development
@@ -69,17 +71,26 @@ Tests were written before their implementation for every unit in
 `src/converter` and `src/plugin/exportFileName.js`; each commit in the
 history adds one red→green step.
 
+`src/plugin/client/dist/client.js` is committed (unlike a typical build
+output) so the root `index.js` manifest works straight out of a GitHub ZIP
+download with no build step. Run `npm run build:plugin` and commit the
+result whenever plugin source under `src/` changes.
+
 ## Installing the plugin in Camunda Modeler
 
 Camunda Modeler discovers plugins as **plain folders** (one folder per
 plugin, each containing its own `index.js`) under its plugins directory —
 not as `.zip` archives.
 
-1. `npm install && npm run package:plugin`
-   This produces a self-contained folder at
-   `release/camunda-drawio-export/` (`index.js`, `menu/menu.js` and the
-   bundled `client.js`, no other source/dev files).
-2. Copy that folder as-is into Camunda Modeler's plugins directory:
+### Quick start (no Node.js required)
+
+1. On this repo's GitHub page, click **Code → Download ZIP**, then extract
+   it. The root `index.js` in the extracted folder is a ready-to-use plugin
+   manifest — the committed `src/plugin/client/dist/client.js` bundle means
+   no build step is needed.
+2. Rename the extracted folder to `camunda-drawio-export` (GitHub names it
+   `Camunda2Drawio-main`) and move it into Camunda Modeler's plugins
+   directory:
    - Windows: `%APPDATA%\camunda-modeler\resources\plugins\`
    - macOS: `~/Library/Application Support/camunda-modeler/resources/plugins/`
    - Linux: `~/.config/camunda-modeler/resources/plugins/`
@@ -95,8 +106,14 @@ not as `.zip` archives.
    `<diagram-name>.drawio` file that can be opened directly in draw.io /
    diagrams.net.
 
-Re-run `npm run package:plugin` and re-copy the folder whenever the plugin
-source changes.
+### From source (for development)
+
+`npm install && npm run package:plugin` builds the client bundle and
+assembles a slim, source-free copy of the plugin at
+`release/camunda-drawio-export/` (`index.js`, `menu/menu.js` and the bundled
+`client.js` only). Copy that folder into the plugins directory instead of
+the whole repo, then repeat step 3 above. Re-run this command and re-copy
+the folder whenever the plugin source changes.
 
 ## Notes / limitations
 
