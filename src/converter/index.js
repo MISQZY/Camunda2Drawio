@@ -1,4 +1,8 @@
-const BpmnModdle = require('bpmn-moddle');
+const BpmnModdleModule = require('bpmn-moddle');
+// Node/Jest resolve the CJS build (module.exports = constructor); webpack's
+// browser bundle resolves the ESM build (export default), which require()
+// sees as { default: constructor } under CJS interop.
+const BpmnModdle = typeof BpmnModdleModule === 'function' ? BpmnModdleModule : BpmnModdleModule.default;
 const { buildDescriptors } = require('./diagramConverter');
 const { convertElement } = require('./elementConverter');
 const { convertFlow } = require('./edgeConverter');
