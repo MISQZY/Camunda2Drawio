@@ -17,6 +17,18 @@ function buildLaneParentMap(processes) {
   return map;
 }
 
+function buildLaneProcessIdMap(processes) {
+  const map = new Map();
+  processes.forEach((process) => {
+    (process.laneSets || []).forEach((laneSet) => {
+      (laneSet.lanes || []).forEach((lane) => {
+        map.set(lane.id, process.id);
+      });
+    });
+  });
+  return map;
+}
+
 function buildParticipantParentMap(collaborations) {
   const map = new Map();
   collaborations.forEach((collaboration) => {
@@ -60,12 +72,19 @@ function buildDescriptors(definitions) {
   const processes = collectRootElementsByType(definitions, 'bpmn:Process');
   const collaborations = collectRootElementsByType(definitions, 'bpmn:Collaboration');
   const laneParentMap = buildLaneParentMap(processes);
+  const laneProcessIdMap = buildLaneProcessIdMap(processes);
   const participantParentMap = buildParticipantParentMap(collaborations);
   const processIdByElementId = buildProcessIdByElementId(processes);
 
   function resolveParent(bpmnElement) {
     if (laneParentMap.has(bpmnElement.id)) {
       return laneParentMap.get(bpmnElement.id);
+    }
+    if (bpmnElement.$type === 'bpmn:Lane' && laneProcessIdMap.has(bpmnElement.id)) {
+      const processId = laneProcessIdMap.get(bpmnElement.id);
+      if (participantParentMap.has(processId)) {
+        return participantParentMap.get(processId);
+      }
     }
     const processId = processIdByElementId.get(bpmnElement.id);
     if (processId && participantParentMap.has(processId)) {
@@ -117,7 +136,25 @@ function buildDescriptors(definitions) {
     }
   });
 
+  normalizeToParentRelativeCoordinates(nodes);
+
   return { nodes, flows };
+}
+
+function normalizeToParentRelativeCoordinates(nodes) {
+  const absoluteById = new Map(nodes.map((node) => [node.id, { x: node.x, y: node.y }]));
+
+  nodes.forEach((node) => {
+    if (node.parent === '1') {
+      return;
+    }
+    const parentAbsolute = absoluteById.get(node.parent);
+    if (!parentAbsolute) {
+      return;
+    }
+    node.x -= parentAbsolute.x;
+    node.y -= parentAbsolute.y;
+  });
 }
 
 module.exports = { buildDescriptors };

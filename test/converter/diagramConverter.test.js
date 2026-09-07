@@ -156,6 +156,69 @@ describe('buildDescriptors', () => {
     expect(taskNode.parent).toBe('Lane_1');
   });
 
+  it('makes a node position relative to its parent container instead of the absolute page position', () => {
+    const taskA = task('Task_A', 'A');
+    const lane = { $type: 'bpmn:Lane', id: 'Lane_1', flowNodeRef: [taskA] };
+    const process = {
+      $type: 'bpmn:Process',
+      id: 'P',
+      flowElements: [taskA],
+      laneSets: [{ lanes: [lane] }]
+    };
+    const definitions = {
+      rootElements: [process],
+      diagrams: [
+        {
+          plane: {
+            planeElement: [
+              shape(lane, { x: 20, y: 30, width: 400, height: 200 }),
+              shape(taskA, { x: 60, y: 90, width: 100, height: 80 })
+            ]
+          }
+        }
+      ]
+    };
+
+    const { nodes } = buildDescriptors(definitions);
+    const taskNode = nodes.find((node) => node.id === 'Task_A');
+
+    expect(taskNode.x).toBe(40);
+    expect(taskNode.y).toBe(60);
+  });
+
+  it('parents a lane under its participant pool', () => {
+    const taskA = task('Task_A', 'A');
+    const lane = { $type: 'bpmn:Lane', id: 'Lane_1', flowNodeRef: [taskA] };
+    const process = {
+      $type: 'bpmn:Process',
+      id: 'P',
+      flowElements: [taskA],
+      laneSets: [{ lanes: [lane] }]
+    };
+    const participant = { $type: 'bpmn:Participant', id: 'Participant_1', processRef: process };
+    const collaboration = { $type: 'bpmn:Collaboration', id: 'Collab_1', participants: [participant] };
+    const definitions = {
+      rootElements: [collaboration, process],
+      diagrams: [
+        {
+          plane: {
+            planeElement: [
+              shape(participant, { x: 0, y: 0, width: 500, height: 250 }),
+              shape(lane, { x: 20, y: 30, width: 480, height: 220 })
+            ]
+          }
+        }
+      ]
+    };
+
+    const { nodes } = buildDescriptors(definitions);
+    const laneNode = nodes.find((node) => node.id === 'Lane_1');
+
+    expect(laneNode.parent).toBe('Participant_1');
+    expect(laneNode.x).toBe(20);
+    expect(laneNode.y).toBe(30);
+  });
+
   it('parents flow nodes under their participant when there is a collaboration without lanes', () => {
     const taskA = task('Task_A', 'A');
     const process = { $type: 'bpmn:Process', id: 'P', flowElements: [taskA] };
