@@ -1,85 +1,24 @@
-import React, { PureComponent } from 'camunda-modeler-plugin-helpers/react.js';
-import Fill from 'camunda-modeler-plugin-helpers/components/Fill.js';
+import { PureComponent } from 'camunda-modeler-plugin-helpers/react.js';
 
-import { convertBpmnToDrawio } from '../../converter/index.js';
-import { toExportFileName } from '../exportFileName.js';
+import { context } from './exportState.js';
 
-const h = React.createElement;
-
-function triggerDownload(fileName, content) {
-  const blob = new Blob([content], { type: 'application/xml' });
-  const link = document.createElement('a');
-
-  link.download = fileName;
-  link.href = URL.createObjectURL(blob);
-  link.click();
-
-  URL.revokeObjectURL(link.href);
-}
-
+// No UI: this only keeps `context` (shared with the editor action in
+// DrawioExportEditorAction.js) pointed at the currently active modeler/tab.
+// The actual "Export as draw.io diagram" entry lives in the Plugins menu
+// (see src/plugin/menu/menu.js), not as a button in the status bar.
 export default class DrawioExportPlugin extends PureComponent {
-  constructor(props) {
-    super(props);
-
-    this.modeler = null;
-    this.tab = null;
-  }
-
   componentDidMount() {
-    const { subscribe } = this.props;
+    const { subscribe, displayNotification } = this.props;
+
+    context.displayNotification = displayNotification;
 
     subscribe('bpmn.modeler.created', (event) => {
-      this.modeler = event.modeler;
-      this.tab = event.tab;
+      context.modeler = event.modeler;
+      context.tab = event.tab;
     });
   }
 
-  handleExport = async () => {
-    const { displayNotification } = this.props;
-
-    if (!this.modeler) {
-      displayNotification({
-        type: 'warning',
-        title: 'draw.io Export',
-        content: 'Open a BPMN diagram first.'
-      });
-      return;
-    }
-
-    try {
-      const { xml } = await this.modeler.saveXML({ format: true });
-      const drawioXml = await convertBpmnToDrawio(xml);
-      const fileName = toExportFileName(this.tab && this.tab.name);
-
-      triggerDownload(fileName, drawioXml);
-
-      displayNotification({
-        type: 'success',
-        title: 'draw.io Export',
-        content: `Exported ${fileName}`
-      });
-    } catch (error) {
-      displayNotification({
-        type: 'error',
-        title: 'draw.io Export failed',
-        content: error.message
-      });
-    }
-  };
-
   render() {
-    return h(
-      Fill,
-      { slot: 'status-bar__file', group: '9_drawio' },
-      h(
-        'button',
-        {
-          type: 'button',
-          title: 'Export as draw.io diagram',
-          onClick: this.handleExport
-        },
-        'draw.io'
-      )
-    );
+    return null;
   }
 }

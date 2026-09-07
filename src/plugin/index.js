@@ -1,6 +1,7 @@
 'use strict';
 
 module.exports = {
-  name: 'draw.io Export',
-  script: './client/dist/client.js'
+  name: 'Draw.io',
+  script: './client/dist/client.js',
+  menu: './menu/menu.js'
 };

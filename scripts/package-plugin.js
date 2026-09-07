@@ -14,8 +14,10 @@ function assertBundleExists() {
   }
 }
 
+const MENU_SOURCE_PATH = path.join(ROOT, 'src', 'plugin', 'menu', 'menu.js');
+
 function writeManifest() {
-  const manifest = "'use strict';\n\nmodule.exports = {\n  name: 'draw.io Export',\n  script: './client.js'\n};\n";
+  const manifest = "'use strict';\n\nmodule.exports = {\n  name: 'Draw.io',\n  script: './client.js',\n  menu: './menu/menu.js'\n};\n";
   fs.writeFileSync(path.join(OUTPUT_DIR, 'index.js'), manifest);
 }
 
@@ -24,9 +26,11 @@ function packagePlugin() {
 
   fs.rmSync(OUTPUT_DIR, { recursive: true, force: true });
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  fs.mkdirSync(path.join(OUTPUT_DIR, 'menu'), { recursive: true });
 
   writeManifest();
   fs.copyFileSync(BUNDLE_PATH, path.join(OUTPUT_DIR, 'client.js'));
+  fs.copyFileSync(MENU_SOURCE_PATH, path.join(OUTPUT_DIR, 'menu', 'menu.js'));
 
   console.log(`Plugin folder ready at: ${OUTPUT_DIR}`);
   console.log('Copy this folder into your Camunda Modeler plugins directory.');
